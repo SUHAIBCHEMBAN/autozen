@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'django_filters',
     'products',
     'users',
     'cart',
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     'pages',
     'landing',
     'wishlist',
+    'payment',
 ]
 
 # Add debug toolbar to INSTALLED_APPS when DEBUG is True
@@ -141,6 +143,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Media files (Uploaded files)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -169,3 +175,14 @@ if DEBUG:
     INTERNAL_IPS = [
         '127.0.0.1',
     ]
+
+# REST Framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20
+}

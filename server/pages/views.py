@@ -1,41 +1,43 @@
 from django.shortcuts import get_object_or_404
-from rest_framework.views import APIView
+from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from .models import Page, FAQ
 from .serializers import PageSerializer, FAQSerializer
 
-class PageDetailView(APIView):
+
+class PageViewSet(viewsets.ViewSet):
     """
-    Retrieve a specific page by slug
+    ViewSet for handling Page operations
     """
-    def get(self, request, slug):
-        page = get_object_or_404(Page, slug=slug, is_active=True)
+    
+    def list(self, request):
+        """List all active pages"""
+        pages = Page.objects.filter(is_active=True)
+        serializer = PageSerializer(pages, many=True)
+        return Response({'pages': serializer.data})
+    
+    def retrieve(self, request, pk=None):
+        """Retrieve a specific page by slug"""
+        page = get_object_or_404(Page, slug=pk, is_active=True)
         serializer = PageSerializer(page)
         return Response(serializer.data)
-
-class PageByTypeView(APIView):
-    """
-    Retrieve a specific page by type
-    """
-    def get(self, request, page_type):
+    
+    @action(detail=False, methods=['get'], url_path='type/(?P<page_type>[^/.]+)')
+    def by_type(self, request, page_type=None):
+        """Retrieve a specific page by type"""
         page = get_object_or_404(Page, page_type=page_type, is_active=True)
         serializer = PageSerializer(page)
         return Response(serializer.data)
 
-class FaqListView(APIView):
+
+class FAQViewSet(viewsets.ViewSet):
     """
-    Retrieve all active FAQs
+    ViewSet for handling FAQ operations
     """
-    def get(self, request):
+    
+    def list(self, request):
+        """Retrieve all active FAQs"""
         faqs = FAQ.objects.filter(is_active=True)
         serializer = FAQSerializer(faqs, many=True)
         return Response({'faqs': serializer.data})
-
-class PageListView(APIView):
-    """
-    List all active pages
-    """
-    def get(self, request):
-        pages = Page.objects.filter(is_active=True)
-        serializer = PageSerializer(pages, many=True)
-        return Response({'pages': serializer.data})

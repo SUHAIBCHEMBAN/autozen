@@ -15,13 +15,19 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/landing/', include('landing.urls')),
     path('api/auth/', include('users.urls')),
-    path('pages/', include('pages.urls')),
+    path('api/products/', include('products.urls')),
+    path('api/pages/', include('pages.urls')),
+    path('api/orders/', include('order.urls')),
+    path('api/wishlist/', include('wishlist.urls')),
+    path('api/cart/', include('cart.urls')),
 ]
 
 # Add debug toolbar URLs when DEBUG is True
@@ -30,3 +36,6 @@ if settings.DEBUG:
     urlpatterns += [
         path('__debug__/', include(debug_toolbar.urls)),
     ]
+    
+    # Serve media files during development
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
