@@ -1,16 +1,14 @@
 from django.db import models
 from django.utils.text import slugify
-from django.urls import reverse
+from django.core.cache import cache
 
 
 class Brand(models.Model):
-    """
-    Represents a vehicle brand/manufacture (e.g., Toyota, Honda, Ford)
-    """
+    """Represents a vehicle brand/manufacturer with caching support"""
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True, blank=True)
     description = models.TextField(blank=True)
-    logo = models.ImageField(upload_to='brands/', blank=True, null=True)
+    logo = models.ImageField(upload_to='brands/logos/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -25,25 +23,32 @@ class Brand(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+        # Invalidate related cache when brand is updated
+        self.invalidate_cache()
+
+    def delete(self, *args, **kwargs):
+        # Invalidate related cache when brand is deleted
+        self.invalidate_cache()
+        super().delete(*args, **kwargs)
+
+    def invalidate_cache(self):
+        """Invalidate cache entries related to this brand"""
+        from .cache_utils import invalidate_brand_cache
+        invalidate_brand_cache(self.id)
 
     def __str__(self):
         return self.name
 
-    def get_absolute_url(self):
-        return reverse('products:brand-detail', kwargs={'slug': self.slug})
-
 
 class VehicleModel(models.Model):
-    """
-    Represents a specific vehicle model (e.g., Innova Crysta, Civic, F-150)
-    """
+    """Represents a specific vehicle model with caching support"""
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='models')
     name = models.CharField(max_length=100)
-    slug = models.SlugField(max_length=100, blank=True)
+    slug = models.SlugField(max_length=100, unique=True, blank=True)
     description = models.TextField(blank=True)
-    year_from = models.PositiveIntegerField(help_text="Manufacturing start year")
-    year_to = models.PositiveIntegerField(help_text="Manufacturing end year (leave blank for ongoing)", blank=True, null=True)
-    image = models.ImageField(upload_to='models/', blank=True, null=True)
+    year_from = models.PositiveIntegerField()
+    year_to = models.PositiveIntegerField(blank=True, null=True)
+    image = models.ImageField(upload_to='models/images/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -52,31 +57,39 @@ class VehicleModel(models.Model):
         db_table = 'product_vehicle_models'
         verbose_name = 'Vehicle Model'
         verbose_name_plural = 'Vehicle Models'
-        unique_together = ['brand', 'name']
         ordering = ['brand', 'name']
+        unique_together = ['brand', 'name']
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(f"{self.brand.name}-{self.name}")
+            self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+        # Invalidate related cache when vehicle model is updated
+        self.invalidate_cache()
+
+    def delete(self, *args, **kwargs):
+        # Invalidate related cache when vehicle model is deleted
+        self.invalidate_cache()
+        super().delete(*args, **kwargs)
+
+    def invalidate_cache(self):
+        """Invalidate cache entries related to this vehicle model"""
+        from .cache_utils import invalidate_vehicle_model_cache
+        invalidate_vehicle_model_cache(self.id)
 
     def __str__(self):
-        return f"{self.brand.name} {self.name}"
-
-    def get_absolute_url(self):
-        return reverse('products:model-detail', kwargs={'brand_slug': self.brand.slug, 'slug': self.slug})
+        if self.year_to:
+            return f"{self.brand.name} {self.name} ({self.year_from}-{self.year_to})"
+        return f"{self.brand.name} {self.name} ({self.year_from}-Present)"
 
 
 class PartCategory(models.Model):
-    """
-    Represents a part category/type (e.g., Steering Wheel, Brake Pad, Engine Oil)
-    Supports hierarchical categories (e.g., Engine -> Engine Parts -> Pistons)
-    """
+    """Represents a part category in a hierarchical structure with caching support"""
     name = models.CharField(max_length=100)
-    slug = models.SlugField(max_length=100, blank=True)
+    slug = models.SlugField(max_length=100, unique=True, blank=True)
     description = models.TextField(blank=True)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True, related_name='subcategories')
-    image = models.ImageField(upload_to='categories/', blank=True, null=True)
+    image = models.ImageField(upload_to='categories/images/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -85,126 +98,162 @@ class PartCategory(models.Model):
         db_table = 'product_part_categories'
         verbose_name = 'Part Category'
         verbose_name_plural = 'Part Categories'
-        unique_together = ['name', 'parent']
         ordering = ['name']
+        unique_together = ['parent', 'name']
 
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+        # Invalidate related cache when part category is updated
+        self.invalidate_cache()
+
+    def delete(self, *args, **kwargs):
+        # Invalidate related cache when part category is deleted
+        self.invalidate_cache()
+        super().delete(*args, **kwargs)
+
+    def invalidate_cache(self):
+        """Invalidate cache entries related to this part category"""
+        from .cache_utils import invalidate_part_category_cache
+        invalidate_part_category_cache(self.id)
+
+    @classmethod
+    def get_cached_by_id(cls, category_id):
+        """
+        Get a PartCategory instance by ID with caching.
+        
+        Args:
+            category_id (int): The ID of the part category
+            
+        Returns:
+            PartCategory: The part category instance or None if not found
+        """
+        cache_key = f'part_category_instance_{category_id}'
+        cached_category = cache.get(cache_key)
+        
+        if cached_category is not None:
+            return cached_category
+            
+        try:
+            category = cls.objects.get(id=category_id)
+            cache.set(cache_key, category, 60 * 15)  # Cache for 15 minutes
+            return category
+        except cls.DoesNotExist:
+            return None
+
+    def is_parent(self):
+        """
+        Check if this category is a parent category (has subcategories) with caching.
+        
+        Returns:
+            bool: True if category has subcategories, False otherwise
+        """
+        cache_key = f'part_category_is_parent_{self.id}'
+        cached_result = cache.get(cache_key)
+        
+        if cached_result is not None:
+            return cached_result
+            
+        result = self.subcategories.exists()
+        cache.set(cache_key, result, 60 * 15)  # Cache for 15 minutes
+        return result
+
+    def get_full_path(self):
+        """
+        Get the full hierarchical path of the category with caching.
+        
+        Returns:
+            str: The full path of the category
+        """
+        cache_key = f'part_category_full_path_{self.id}'
+        cached_path = cache.get(cache_key)
+        
+        if cached_path is not None:
+            return cached_path
+            
+        path_parts = []
+        current = self
+        while current:
+            path_parts.insert(0, current.name)
+            current = current.parent
+        path = ' > '.join(path_parts)
+        cache.set(cache_key, path, 60 * 15)  # Cache for 15 minutes
+        return path
 
     def __str__(self):
-        if self.parent:
-            return f"{self.parent.name} > {self.name}"
-        return self.name
-
-    def get_absolute_url(self):
-        return reverse('products:category-detail', kwargs={'slug': self.slug})
-
-    @property
-    def is_parent(self):
-        """Check if category is a parent (has no parent itself)"""
-        return self.parent is None
-
-    @property
-    def get_full_path(self):
-        """Get full category path as a string (e.g., 'Engine > Engine Parts > Pistons')"""
-        path = [self.name]
-        parent = self.parent
-        while parent:
-            path.append(parent.name)
-            parent = parent.parent
-        return ' > '.join(reversed(path))
+        return self.get_full_path() if self.parent else self.name
 
 
 class Product(models.Model):
-    """
-    Represents a product in the automotive spare parts store
-    """
-    # Basic product information
+    """Represents a product in the store with caching support"""
     name = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=200, blank=True)
-    description = models.TextField()
+    slug = models.SlugField(max_length=200, unique=True, blank=True)
+    sku = models.CharField(max_length=100, unique=True)
     short_description = models.CharField(max_length=300, blank=True)
+    description = models.TextField(blank=True)
+    featured_image = models.ImageField(upload_to='products/featured/', blank=True, null=True)
     
-    # Vehicle compatibility - the hierarchical structure
+    # OEM and manufacturer information
+    oem_number = models.CharField(max_length=100, blank=True)
+    manufacturer_part_number = models.CharField(max_length=100, blank=True)
+    
+    # Pricing
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    compare_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    
+    # Relationships
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='products')
     vehicle_model = models.ForeignKey(VehicleModel, on_delete=models.CASCADE, related_name='products')
     part_category = models.ForeignKey(PartCategory, on_delete=models.CASCADE, related_name='products')
     
-    # Product attributes
-    sku = models.CharField(max_length=100, unique=True, help_text="Stock Keeping Unit")
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    compare_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, 
-                                       help_text="Original price for comparison")
-    cost_per_item = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    
     # Inventory
     stock_quantity = models.PositiveIntegerField(default=0)
     track_inventory = models.BooleanField(default=True)
-    continue_selling = models.BooleanField(default=False, 
-                                          help_text="Continue selling when out of stock")
-    
-    # Media
-    featured_image = models.ImageField(upload_to='products/', blank=True, null=True)
-    gallery_images = models.JSONField(blank=True, null=True, 
-                                     help_text="JSON array of additional image URLs")
-    
-    # SEO and metadata
-    seo_title = models.CharField(max_length=200, blank=True)
-    seo_description = models.TextField(blank=True)
-    meta_keywords = models.CharField(max_length=255, blank=True)
-    
-    # Status and visibility
+    continue_selling = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
     
-    # Timestamps
+    # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
-    # Additional fields for automotive parts
-    oem_number = models.CharField(max_length=100, blank=True, 
-                                 help_text="Original Equipment Manufacturer number")
-    manufacturer_part_number = models.CharField(max_length=100, blank=True)
-    compatibility_notes = models.TextField(blank=True, 
-                                          help_text="Additional compatibility information")
-    weight = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True, 
-                                help_text="Weight in kg")
-    dimensions = models.CharField(max_length=100, blank=True, 
-                                 help_text="Dimensions (L x W x H in cm)")
 
     class Meta:
         db_table = 'products'
         verbose_name = 'Product'
         verbose_name_plural = 'Products'
         ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['slug']),
-            models.Index(fields=['sku']),
-            models.Index(fields=['brand', 'vehicle_model']),
-            models.Index(fields=['part_category']),
-            models.Index(fields=['is_active', 'is_featured']),
-            models.Index(fields=['created_at']),
-        ]
 
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
-        # Auto-generate short description if not provided
-        if not self.short_description and self.description:
-            self.short_description = self.description[:297] + "..." if len(self.description) > 300 else self.description
         super().save(*args, **kwargs)
+        # Invalidate related cache when product is updated
+        self.invalidate_cache()
 
-    def __str__(self):
-        return f"{self.name} ({self.vehicle_model})"
+    def delete(self, *args, **kwargs):
+        # Invalidate related cache when product is deleted
+        self.invalidate_cache()
+        super().delete(*args, **kwargs)
 
-    def get_absolute_url(self):
-        return reverse('products:product-detail', kwargs={
-            'brand_slug': self.brand.slug,
-            'model_slug': self.vehicle_model.slug,
-            'slug': self.slug
-        })
+    def invalidate_cache(self):
+        """Invalidate cache entries related to this product"""
+        from .cache_utils import invalidate_product_cache
+        invalidate_product_cache(product_id=self.id, sku=self.sku)
+
+    @property
+    def amount_saved(self):
+        """Calculate the amount saved when compare price is higher than price"""
+        if self.compare_price and self.compare_price > self.price:
+            return self.compare_price - self.price
+        return 0
+
+    @property
+    def discount_percentage(self):
+        """Calculate the discount percentage when compare price is higher than price"""
+        if self.compare_price and self.compare_price > self.price:
+            return int(((self.compare_price - self.price) / self.compare_price) * 100)
+        return 0
 
     @property
     def is_in_stock(self):
@@ -213,16 +262,5 @@ class Product(models.Model):
             return True
         return self.stock_quantity > 0 or self.continue_selling
 
-    @property
-    def amount_saved(self):
-        """Calculate amount saved if compare price is set"""
-        if self.compare_price and self.compare_price > self.price:
-            return self.compare_price - self.price
-        return None
-
-    @property
-    def discount_percentage(self):
-        """Calculate discount percentage if compare price is set"""
-        if self.compare_price and self.compare_price > self.price:
-            return round(((self.compare_price - self.price) / self.compare_price) * 100)
-        return None
+    def __str__(self):
+        return f"{self.name} ({self.sku})"

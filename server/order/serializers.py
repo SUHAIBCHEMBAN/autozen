@@ -1,9 +1,11 @@
 from rest_framework import serializers
+from django.core.cache import cache
 from .models import Order, OrderItem, OrderStatusLog, OrderStatus, PaymentMethod
+from .utils import get_order_items_cache_key
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    """Serializer for order items"""
+    """Serializer for order items with caching optimization"""
     product_url = serializers.HyperlinkedRelatedField(
         view_name='products:product-detail',
         read_only=True,
@@ -29,8 +31,8 @@ class OrderStatusLogSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    """Serializer for orders"""
-    items = OrderItemSerializer(many=True, read_only=True)
+    """Serializer for orders with caching optimization"""
+    items = serializers.SerializerMethodField()
     status_logs = OrderStatusLogSerializer(many=True, read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
     can_be_cancelled = serializers.BooleanField(read_only=True)
@@ -54,6 +56,36 @@ class OrderSerializer(serializers.ModelSerializer):
             'order_number', 'user', 'user_email', 'created_at', 'updated_at',
             'shipped_at', 'delivered_at', 'can_be_cancelled'
         ]
+    
+    def get_items(self, obj):
+        """
+        Get order items with caching.
+        
+        Retrieves order items from cache if available, otherwise fetches from
+        database and caches the result.
+        
+        Args:
+            obj (Order): The order object
+            
+        Returns:
+            list: Serialized order items data
+        """
+        # Try to get from cache first
+        cache_key = get_order_items_cache_key(obj.id)
+        cached_data = cache.get(cache_key)
+        
+        if cached_data is not None:
+            return cached_data
+            
+        # Get items from database
+        items = obj.items.all()
+        # Pass context to ensure hyperlinked fields work correctly
+        serializer = OrderItemSerializer(items, many=True, context=self.context)
+        
+        # Cache the serialized data for 15 minutes
+        cache.set(cache_key, serializer.data, 60 * 15)
+        
+        return serializer.data
 
 
 class OrderCreateSerializer(serializers.ModelSerializer):

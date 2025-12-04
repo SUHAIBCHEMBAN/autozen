@@ -24,6 +24,42 @@ class HeroBanner(models.Model):
         verbose_name_plural = 'Hero Banners'
         ordering = ['order', '-created_at']
     
+    def save(self, *args, **kwargs):
+        """
+        Save the hero banner and invalidate landing page cache.
+        
+        Overrides the default save method to ensure landing page cache
+        is invalidated whenever a hero banner is created or updated.
+        """
+        super().save(*args, **kwargs)
+        # Invalidate landing page cache when hero banner is updated
+        self.invalidate_cache()
+    
+    def delete(self, *args, **kwargs):
+        """
+        Delete the hero banner and invalidate landing page cache.
+        
+        Overrides the default delete method to ensure landing page cache
+        is invalidated whenever a hero banner is deleted.
+        """
+        super().delete(*args, **kwargs)
+        # Invalidate landing page cache when hero banner is deleted
+        self.invalidate_cache()
+    
+    @staticmethod
+    def invalidate_cache():
+        """
+        Invalidate landing page cache.
+        
+        This method clears all cache keys related to the landing page content.
+        """
+        from django.core.cache import cache
+        cache_keys = [
+            'landing_page_content',
+            'active_hero_banners',
+        ]
+        cache.delete_many(cache_keys)
+    
     def __str__(self):
         return self.title
 
@@ -50,9 +86,43 @@ class CategorySection(models.Model):
         ordering = ['order', '-created_at']
     
     def save(self, *args, **kwargs):
+        """
+        Save the category section and invalidate landing page cache.
+        
+        Overrides the default save method to ensure landing page cache
+        is invalidated whenever a category section is created or updated.
+        Also generates a slug if one doesn't exist.
+        """
         if not self.slug:
             self.slug = slugify(self.title)
         super().save(*args, **kwargs)
+        # Invalidate landing page cache when category section is updated
+        self.invalidate_cache()
+    
+    def delete(self, *args, **kwargs):
+        """
+        Delete the category section and invalidate landing page cache.
+        
+        Overrides the default delete method to ensure landing page cache
+        is invalidated whenever a category section is deleted.
+        """
+        super().delete(*args, **kwargs)
+        # Invalidate landing page cache when category section is deleted
+        self.invalidate_cache()
+    
+    @staticmethod
+    def invalidate_cache():
+        """
+        Invalidate landing page cache.
+        
+        This method clears all cache keys related to the landing page content.
+        """
+        from django.core.cache import cache
+        cache_keys = [
+            'landing_page_content',
+            'active_category_sections',
+        ]
+        cache.delete_many(cache_keys)
     
     def __str__(self):
         return self.title
@@ -80,6 +150,42 @@ class AdvertisementBanner(models.Model):
         verbose_name_plural = 'Advertisement Banners'
         ordering = ['order', '-created_at']
     
+    def save(self, *args, **kwargs):
+        """
+        Save the advertisement banner and invalidate landing page cache.
+        
+        Overrides the default save method to ensure landing page cache
+        is invalidated whenever an advertisement banner is created or updated.
+        """
+        super().save(*args, **kwargs)
+        # Invalidate landing page cache when advertisement banner is updated
+        self.invalidate_cache()
+    
+    def delete(self, *args, **kwargs):
+        """
+        Delete the advertisement banner and invalidate landing page cache.
+        
+        Overrides the default delete method to ensure landing page cache
+        is invalidated whenever an advertisement banner is deleted.
+        """
+        super().delete(*args, **kwargs)
+        # Invalidate landing page cache when advertisement banner is deleted
+        self.invalidate_cache()
+    
+    @staticmethod
+    def invalidate_cache():
+        """
+        Invalidate landing page cache.
+        
+        This method clears all cache keys related to the landing page content.
+        """
+        from django.core.cache import cache
+        cache_keys = [
+            'landing_page_content',
+            'active_advertisements',
+        ]
+        cache.delete_many(cache_keys)
+    
     def __str__(self):
         return self.title
 
@@ -104,6 +210,42 @@ class Testimonial(models.Model):
         verbose_name = 'Testimonial'
         verbose_name_plural = 'Testimonials'
         ordering = ['order', '-created_at']
+    
+    def save(self, *args, **kwargs):
+        """
+        Save the testimonial and invalidate landing page cache.
+        
+        Overrides the default save method to ensure landing page cache
+        is invalidated whenever a testimonial is created or updated.
+        """
+        super().save(*args, **kwargs)
+        # Invalidate landing page cache when testimonial is updated
+        self.invalidate_cache()
+    
+    def delete(self, *args, **kwargs):
+        """
+        Delete the testimonial and invalidate landing page cache.
+        
+        Overrides the default delete method to ensure landing page cache
+        is invalidated whenever a testimonial is deleted.
+        """
+        super().delete(*args, **kwargs)
+        # Invalidate landing page cache when testimonial is deleted
+        self.invalidate_cache()
+    
+    @staticmethod
+    def invalidate_cache():
+        """
+        Invalidate landing page cache.
+        
+        This method clears all cache keys related to the landing page content.
+        """
+        from django.core.cache import cache
+        cache_keys = [
+            'landing_page_content',
+            'featured_testimonials',
+        ]
+        cache.delete_many(cache_keys)
     
     def __str__(self):
         return f"{self.name} - {self.company}"
@@ -132,6 +274,11 @@ class LandingPageConfiguration(models.Model):
         return f"Landing Page Configuration - {self.site_title}"
     
     def save(self, *args, **kwargs):
+        """
+        Save the landing page configuration and invalidate landing page cache.
+        
+        Ensures only one configuration exists and invalidates cache when updated.
+        """
         # Ensure only one configuration exists
         if not self.pk and LandingPageConfiguration.objects.exists():
             # Update existing configuration instead of creating new one
@@ -140,12 +287,38 @@ class LandingPageConfiguration(models.Model):
                 if field.name not in ['id', 'created_at', 'updated_at']:
                     setattr(existing, field.name, getattr(self, field.name))
             existing.save()
+            # Invalidate landing page cache when configuration is updated
+            self.invalidate_cache()
             return
         super().save(*args, **kwargs)
+        # Invalidate landing page cache when configuration is updated
+        self.invalidate_cache()
+    
+    @staticmethod
+    def invalidate_cache():
+        """
+        Invalidate landing page cache.
+        
+        This method clears all cache keys related to the landing page content.
+        """
+        from django.core.cache import cache
+        cache_keys = [
+            'landing_page_content',
+            'landing_page_configuration',
+        ]
+        cache.delete_many(cache_keys)
     
     @classmethod
     def get_config(cls):
-        """Get the landing page configuration or create default"""
+        """
+        Get the landing page configuration or create default.
+        
+        Retrieves the existing configuration or creates a default one.
+        Uses caching for improved performance.
+        
+        Returns:
+            LandingPageConfiguration: The configuration object
+        """
         config, created = cls.objects.get_or_create(
             defaults={
                 'site_title': 'AutoZen',

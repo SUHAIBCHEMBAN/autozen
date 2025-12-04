@@ -4,12 +4,17 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
+from django.core.cache import cache
 from .models import Order, OrderItem, OrderStatus
 from .serializers import (
     OrderSerializer, OrderCreateSerializer, 
     OrderUpdateSerializer, CheckoutSerializer
 )
 from products.models import Product
+from .utils import (
+    get_order_cache_key, get_user_orders_cache_key, 
+    get_order_items_cache_key, send_order_confirmation_email
+)
 
 
 class IsOwnerOrStaff(permissions.BasePermission):
@@ -36,7 +41,12 @@ class IsOwnerOrStaff(permissions.BasePermission):
 
 class OrderViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for handling Order operations
+    ViewSet for handling Order operations with Redis caching optimization.
+    
+    Implements caching for improved performance:
+    - Orders list is cached per user
+    - Individual orders are cached by ID
+    - Order items are cached separately for efficient retrieval
     """
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
@@ -60,6 +70,25 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Order.objects.all()
         return Order.objects.filter(user=self.request.user)
     
+    def get_serializer_context(self):
+        """
+        Extra context provided to the serializer class.
+        This ensures the request is passed to the serializer context.
+        """
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def get_serializer(self, *args, **kwargs):
+        """
+        Return the serializer instance that should be used for serializing
+        the input, and deserializing the output.
+        This ensures the request context is passed to the serializer.
+        """
+        serializer_class = self.get_serializer_class()
+        kwargs.setdefault('context', self.get_serializer_context())
+        return serializer_class(*args, **kwargs)
+    
     def get_serializer_class(self):
         if self.action == 'create':
             return OrderCreateSerializer
@@ -71,6 +100,63 @@ class OrderViewSet(viewsets.ModelViewSet):
         """Set the user to the current user when creating an order"""
         if self.request.user.is_authenticated:
             serializer.save(user=self.request.user)
+    
+    def list(self, request, *args, **kwargs):
+        """
+        Retrieve a list of orders for the current user with caching.
+        
+        For authenticated users, retrieves orders from cache if available,
+        otherwise fetches from database and caches the result.
+        
+        Returns:
+            Response: Serialized orders data with HTTP 200 status
+        """
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            return Response([])
+            
+        # Try to get from cache first
+        cache_key = get_user_orders_cache_key(request.user.id)
+        cached_data = cache.get(cache_key)
+        
+        if cached_data is not None:
+            return Response(cached_data)
+            
+        # Get orders from database
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        
+        # Cache the serialized data for 15 minutes
+        cache.set(cache_key, serializer.data, 60 * 15)
+        
+        return Response(serializer.data)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Retrieve a specific order with caching.
+        
+        Gets order data from cache if available, otherwise fetches from
+        database and caches the result.
+        
+        Returns:
+            Response: Serialized order data with HTTP 200 status
+        """
+        # Try to get from cache first
+        order_id = kwargs.get('pk')
+        cache_key = get_order_cache_key(order_id)
+        cached_data = cache.get(cache_key)
+        
+        if cached_data is not None:
+            return Response(cached_data)
+            
+        # Get order from database
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        
+        # Cache the serialized data for 15 minutes
+        cache.set(cache_key, serializer.data, 60 * 15)
+        
+        return Response(serializer.data)
     
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
@@ -114,10 +200,17 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def history(self, request):
-        """Get order history for the current user"""
+        """Get order history for the current user with caching"""
         # Check if user is authenticated
         if not request.user.is_authenticated:
             return Response({'orders': []})
+            
+        # Try to get from cache first
+        cache_key = get_user_orders_cache_key(request.user.id)
+        cached_data = cache.get(cache_key)
+        
+        if cached_data is not None:
+            return Response(cached_data)
             
         if request.user.is_staff:
             orders = Order.objects.all()
@@ -125,6 +218,10 @@ class OrderViewSet(viewsets.ModelViewSet):
             orders = Order.objects.filter(user=request.user)
         
         serializer = self.get_serializer(orders, many=True)
+        
+        # Cache the serialized data for 15 minutes
+        cache.set(cache_key, serializer.data, 60 * 15)
+        
         return Response(serializer.data)
     
     @action(detail=False, methods=['post'], permission_classes=[])
@@ -207,7 +304,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             }
             
             # Create order serializer
-            order_serializer = OrderCreateSerializer(data=order_data)
+            order_serializer = OrderCreateSerializer(data=order_data, context=self.get_serializer_context())
             if order_serializer.is_valid():
                 order = order_serializer.save(user=request.user if request.user.is_authenticated else None)
                 
@@ -225,6 +322,13 @@ class OrderViewSet(viewsets.ModelViewSet):
                     product = Product.objects.get(id=item['product'])
                     product.stock_quantity -= item['quantity']
                     product.save()
+                
+                # Send order confirmation email
+                send_order_confirmation_email(order)
+                
+                # Invalidate user orders cache
+                if request.user.is_authenticated:
+                    cache.delete(get_user_orders_cache_key(request.user.id))
                 
                 return Response({
                     'message': 'Order created successfully',

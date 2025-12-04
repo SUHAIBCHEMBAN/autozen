@@ -305,6 +305,29 @@ The API implements rate limiting to prevent abuse. Exceeding the limit will resu
 - Efficient serialization with nested product data
 - Prefetching related objects to minimize database queries
 - Proper use of select_related and prefetch_related
+- **Redis caching for improved API response times**
+- **Automatic cache invalidation on cart modifications**
+- **Configurable cache timeouts**
+
+## Caching
+
+The Cart API implements a comprehensive caching strategy using Redis to improve performance:
+
+### Cached Endpoints
+- `GET /api/cart/cart/` - User's cart data
+- `GET /api/cart/cart/items/` - Cart items list
+
+### Cache Invalidation
+Cache is automatically invalidated when:
+- Items are added to cart
+- Item quantities are updated
+- Items are removed from cart
+- Cart is cleared
+
+### Cache Configuration
+- Default cache timeout: 15 minutes
+- Configurable via `CART_CACHE_TIMEOUT` setting
+- Automatic fallback to database when cache misses occur
 
 ## Integration with Other Systems
 

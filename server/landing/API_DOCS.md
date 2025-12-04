@@ -369,6 +369,7 @@ The API implements rate limiting to prevent abuse. Exceeding the limit will resu
 - **Scheduled Publishing**: Time-based advertisement banners
 - **Rich Media Support**: Images for all content types
 - **Ordering System**: Customizable display order
+- **Redis Caching**: Comprehensive caching strategy for improved performance
 
 ### Security
 
@@ -383,6 +384,49 @@ The API implements rate limiting to prevent abuse. Exceeding the limit will resu
 - Efficient serialization
 - Prefetching related objects
 - Proper use of select_related
+- **Redis caching for frequently accessed data**
+- **Automatic cache invalidation on content updates**
+
+### Caching Strategy
+
+The landing page API implements a comprehensive caching strategy using Redis to improve performance:
+
+1. **Complete Page Content Caching**
+   - Entire landing page content is cached for 15 minutes
+   - Reduces database queries for frequently accessed landing page
+   - Cache key: `landing_page_content`
+
+2. **Individual Section Caching**
+   - Each content section is cached separately for flexible updates
+   - Hero banners: `active_hero_banners`
+   - Category sections: `active_category_sections`
+   - New arrivals: `new_arrival_products_{limit}`
+   - Advertisements: `active_advertisements`
+   - Testimonials: `featured_testimonials`
+   - Featured brands: `featured_brands_{limit}`
+
+3. **Configuration Caching**
+   - Landing page configuration cached for 1 hour (changes less frequently)
+   - Cache invalidation when configuration is updated
+
+4. **Cache Invalidation**
+   - Automatic cache invalidation on all content updates
+   - Targeted cache clearing to minimize performance impact
+   - Graceful fallback to database when cache misses occur
+
+### Cache Keys
+- `landing_page_content`: Complete landing page content
+- `active_hero_banners`: Active hero banners
+- `active_category_sections`: Active category sections
+- `new_arrival_products_{limit}`: New arrival products with limit
+- `active_advertisements`: Active advertisement banners
+- `featured_testimonials`: Featured testimonials
+- `featured_brands_{limit}`: Featured brands with limit
+
+### Configuration
+Cache timeouts can be customized by setting these variables in settings.py:
+- `LANDING_CONTENT_CACHE_TIMEOUT`: Timeout for content (default: 900 seconds/15 minutes)
+- `LANDING_CONFIG_CACHE_TIMEOUT`: Timeout for configuration (default: 3600 seconds/1 hour)
 
 ## Integration with Other Systems
 

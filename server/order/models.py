@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.utils.text import slugify
 from django.urls import reverse
+from django.utils import timezone
 from products.models import Product
 
 
@@ -98,7 +99,17 @@ class Order(models.Model):
     def save(self, *args, **kwargs):
         if not self.order_number:
             self.order_number = self.generate_order_number()
+        
+        # Save first to ensure we have an ID
         super().save(*args, **kwargs)
+        
+        # Now invalidate cache for this order and user's orders
+        if hasattr(self, 'id') and self.id:
+            from .utils import invalidate_order_cache
+            invalidate_order_cache(self.id)
+        if hasattr(self, 'user') and hasattr(self.user, 'id'):
+            from .utils import invalidate_user_orders_cache
+            invalidate_user_orders_cache(self.user.id)
 
     def generate_order_number(self):
         """Generate a unique order number"""
@@ -153,6 +164,14 @@ class Order(models.Model):
             old_status=old_status,
             new_status=new_status
         )
+        
+        # Invalidate cache for this order and user's orders
+        if hasattr(self, 'id') and self.id:
+            from .utils import invalidate_order_cache
+            invalidate_order_cache(self.id)
+        if hasattr(self, 'user') and hasattr(self.user, 'id'):
+            from .utils import invalidate_user_orders_cache
+            invalidate_user_orders_cache(self.user.id)
 
 
 class OrderItem(models.Model):

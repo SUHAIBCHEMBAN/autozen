@@ -4,7 +4,8 @@ from .models import HeroBanner, CategorySection, AdvertisementBanner, Testimonia
 
 
 class HeroBannerSerializer(serializers.ModelSerializer):
-    """Serializer for hero banners"""
+    """Serializer for hero banners with caching support"""
+    
     class Meta:
         model = HeroBanner
         fields = [
@@ -15,7 +16,7 @@ class HeroBannerSerializer(serializers.ModelSerializer):
 
 
 class CategorySectionSerializer(serializers.ModelSerializer):
-    """Serializer for category sections"""
+    """Serializer for category sections with caching support"""
     category = PartCategorySerializer(read_only=True)
     
     class Meta:
@@ -25,10 +26,34 @@ class CategorySectionSerializer(serializers.ModelSerializer):
             'image', 'icon', 'is_active', 'order', 
             'created_at', 'updated_at'
         ]
+    
+    def to_representation(self, instance):
+        """
+        Override to_representation to use cached PartCategory instances.
+        
+        This reduces database queries by using cached PartCategory instances
+        when available.
+        
+        Args:
+            instance (CategorySection): The category section instance
+            
+        Returns:
+            dict: The serialized representation
+        """
+        # Use cached PartCategory instances to reduce database queries
+        if hasattr(instance, 'category_id') and instance.category_id:
+            from products.models import PartCategory
+            cached_category = PartCategory.get_cached_by_id(instance.category_id)
+            if cached_category:
+                # Temporarily replace the category with the cached version
+                instance.category = cached_category
+        
+        return super().to_representation(instance)
 
 
 class AdvertisementBannerSerializer(serializers.ModelSerializer):
-    """Serializer for advertisement banners"""
+    """Serializer for advertisement banners with caching support"""
+    
     class Meta:
         model = AdvertisementBanner
         fields = [
@@ -39,7 +64,8 @@ class AdvertisementBannerSerializer(serializers.ModelSerializer):
 
 
 class TestimonialSerializer(serializers.ModelSerializer):
-    """Serializer for testimonials"""
+    """Serializer for testimonials with caching support"""
+    
     class Meta:
         model = Testimonial
         fields = [
@@ -50,7 +76,8 @@ class TestimonialSerializer(serializers.ModelSerializer):
 
 
 class LandingPageConfigurationSerializer(serializers.ModelSerializer):
-    """Serializer for landing page configuration"""
+    """Serializer for landing page configuration with caching support"""
+    
     class Meta:
         model = LandingPageConfiguration
         fields = [
@@ -61,7 +88,7 @@ class LandingPageConfigurationSerializer(serializers.ModelSerializer):
 
 
 class LandingPageContentSerializer(serializers.Serializer):
-    """Serializer for the complete landing page content"""
+    """Serializer for the complete landing page content with caching support"""
     configuration = LandingPageConfigurationSerializer()
     hero_banners = HeroBannerSerializer(many=True)
     categories = CategorySectionSerializer(many=True)
@@ -71,9 +98,29 @@ class LandingPageContentSerializer(serializers.Serializer):
     featured_brands = serializers.SerializerMethodField()
     
     def get_featured_brands(self, obj):
+        """
+        Get featured brands from cached data or database.
+        
+        This method retrieves featured brands either from the passed object
+        (when using cached data) or directly from the database.
+        
+        Args:
+            obj (dict): The serialized object containing landing page data
+            
+        Returns:
+            list: Serialized brand data
+        """
         from products.models import Brand
-        brands = Brand.objects.filter(is_active=True)[:10]  # Limit to 10 brands
         from products.serializers import BrandSerializer
+        
+        # Check if featured brands are already in the object (from cache)
+        if 'featured_brands' in obj and hasattr(obj['featured_brands'], '__iter__'):
+            # Use the cached brands data
+            brands = obj['featured_brands']
+        else:
+            # Fallback to database query
+            brands = Brand.objects.filter(is_active=True)[:10]  # Limit to 10 brands
+        
         # Pass the request context to the serializer
         request = self.context.get('request')
         return BrandSerializer(brands, many=True, context={'request': request}).data

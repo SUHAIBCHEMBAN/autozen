@@ -163,12 +163,39 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
-# Cache settings (using local memory cache for development)
+# Cache settings (using Redis cache for production, local memory cache for development)
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
     }
 }
+
+# Cart cache timeout in seconds (default: 15 minutes)
+CART_CACHE_TIMEOUT = 60 * 15  # 15 minutes
+
+# Landing page cache timeout settings
+LANDING_CONTENT_CACHE_TIMEOUT = 60 * 15  # 15 minutes for landing page content
+LANDING_CONFIG_CACHE_TIMEOUT = 60 * 60   # 1 hour for configuration (changes less frequently)
+
+# Pages cache timeout settings
+PAGES_CONTENT_CACHE_TIMEOUT = 60 * 15  # 15 minutes for pages content
+
+# Products cache timeout settings
+PRODUCTS_CACHE_TIMEOUT = 60 * 15  # 15 minutes for products content
+
+# Fallback to local memory cache if Redis is not available in development
+try:
+    import redis
+except ImportError:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        }
+    }
 
 # Debug toolbar settings
 if DEBUG:

@@ -32,6 +32,7 @@ The cart app allows users to add products to a temporary shopping cart before pr
 - Proper indexing
 - Prefetching related data
 - Clean serialization
+- **Redis caching for improved performance**
 
 ### Security Focused
 - User-specific access control
@@ -112,6 +113,36 @@ The `utils.py` file provides functions for:
 - Clearing cart
 - Checking if product is in cart
 - Getting cart summary
+- Cache management utilities
+
+## Performance Optimization
+
+### Caching Strategy
+The cart app implements a comprehensive caching strategy using Redis to improve performance:
+
+1. **Cart Data Caching**
+   - User carts are cached for 15 minutes
+   - Cart items are cached separately for faster access
+   - Cache keys are invalidated on cart modifications
+
+2. **Property Caching**
+   - Cart properties (items_count, total_quantity, subtotal) are cached individually
+   - Property caches are invalidated when cart contents change
+
+3. **Cache Invalidation**
+   - Automatic cache invalidation on all cart operations
+   - Targeted cache clearing to minimize performance impact
+   - Graceful fallback to database when cache misses occur
+
+### Cache Keys
+- `cart_{user_id}`: Cached cart object
+- `cart_items_{user_id}`: Cached cart items list
+- `cart_items_count_{cart_id}`: Cached items count
+- `cart_total_quantity_{cart_id}`: Cached total quantity
+- `cart_subtotal_{cart_id}`: Cached subtotal
+
+### Configuration
+Cache timeout can be customized by setting `CART_CACHE_TIMEOUT` in settings.py (default: 900 seconds/15 minutes).
 
 ## Best Practices Implemented
 
@@ -130,6 +161,7 @@ The `utils.py` file provides functions for:
    - Proper indexing on frequently queried fields
    - Efficient querying patterns
    - Select/prefetch related optimizations
+   - **Redis caching for frequently accessed data**
 
 4. **Scalability**
    - Modular design with clear separation of concerns
@@ -165,6 +197,24 @@ The `utils.py` file provides functions for:
    ```bash
    python manage.py makemigrations cart
    python manage.py migrate cart
+   ```
+
+4. Install Redis and required packages:
+   ```bash
+   pip install redis django-redis
+   ```
+
+5. Configure Redis in settings.py:
+   ```python
+   CACHES = {
+       'default': {
+           'BACKEND': 'django_redis.cache.RedisCache',
+           'LOCATION': 'redis://127.0.0.1:6379/1',
+           'OPTIONS': {
+               'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+           }
+       }
+   }
    ```
 
 ## Usage Examples
