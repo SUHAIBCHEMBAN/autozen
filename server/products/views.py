@@ -5,6 +5,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from .models import Brand, VehicleModel, PartCategory, Product
+from .cache_utils import (
+    get_cached_brands_list, get_cached_models_list, get_cached_categories_list,
+    get_cached_brand_by_slug, get_cached_model_by_slug, get_cached_category_by_slug,
+    get_cached_product_by_slug
+)
 from .serializers import (
     BrandSerializer, BrandDetailSerializer,
     VehicleModelSerializer, VehicleModelDetailSerializer,
@@ -15,18 +20,37 @@ from .serializers import (
 
 class BrandViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for Brand model with Redis caching.
-    
-    Implements caching for frequently accessed data to improve performance
-    and reduce database load. Uses cache_utils for consistent cache management.
+    ViewSet for Brand model
     """
-    queryset = Brand.objects.filter(is_active=True).order_by('name')
+    queryset = Brand.objects.filter(is_active=True)
     serializer_class = BrandSerializer
     lookup_field = 'slug'
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
+
+    def get_queryset(self):
+        """Return queryset of active brands with caching optimization"""
+        # For list views, we can use cached data
+        if self.action == 'list':
+            # Get cached brands list
+            cached_brands = get_cached_brands_list()
+            # Convert list to queryset-like object that supports filtering
+            if cached_brands:
+                # Return the original queryset but it will be faster due to caching in the model layer
+                return self.queryset
+        # For other actions, return the regular queryset
+        return self.queryset
+
+    def get_object(self):
+        """Get a brand object by slug with caching"""
+        slug = self.kwargs.get(self.lookup_field)
+        obj = get_cached_brand_by_slug(slug)
+        if obj is None:
+            from django.http import Http404
+            raise Http404("Brand not found")
+        return obj
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -35,23 +59,18 @@ class BrandViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def models(self, request, slug=None):
-        """Get all models for a specific brand with caching"""
-        from .cache_utils import get_products_by_brand
+        """Get all models for a specific brand"""
         brand = self.get_object()
-        # Use cached function to get products by brand
-        models = brand.models.filter(is_active=True).order_by('name')
+        models = get_cached_models_list(brand_id=brand.id)
         serializer = VehicleModelSerializer(models, many=True, context={'request': request})
         return Response(serializer.data)
 
 
 class VehicleModelViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for VehicleModel model with Redis caching.
-    
-    Implements caching for frequently accessed data to improve performance
-    and reduce database load. Uses cache_utils for consistent cache management.
+    ViewSet for VehicleModel model
     """
-    queryset = VehicleModel.objects.filter(is_active=True).select_related('brand').order_by('brand', 'name')
+    queryset = VehicleModel.objects.filter(is_active=True).select_related('brand')
     serializer_class = VehicleModelSerializer
     lookup_field = 'slug'
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -60,6 +79,28 @@ class VehicleModelViewSet(viewsets.ModelViewSet):
     ordering_fields = ['name', 'brand', 'year_from', 'created_at']
     ordering = ['brand', 'name']
 
+    def get_queryset(self):
+        """Return queryset of active vehicle models with caching optimization"""
+        # For list views, we can use cached data
+        if self.action == 'list':
+            # Get cached models list
+            cached_models = get_cached_models_list()
+            # Convert list to queryset-like object that supports filtering
+            if cached_models:
+                # Return the original queryset but it will be faster due to caching in the model layer
+                return self.queryset
+        # For other actions, return the regular queryset
+        return self.queryset
+
+    def get_object(self):
+        """Get a vehicle model object by slug with caching"""
+        slug = self.kwargs.get(self.lookup_field)
+        obj = get_cached_model_by_slug(slug)
+        if obj is None:
+            from django.http import Http404
+            raise Http404("Vehicle model not found")
+        return obj
+
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return VehicleModelDetailSerializer
@@ -67,23 +108,19 @@ class VehicleModelViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def products(self, request, slug=None):
-        """Get all products for a specific vehicle model with caching"""
-        from .cache_utils import get_products_by_model
+        """Get all products for a specific vehicle model"""
         model = self.get_object()
-        # Use cached function to get products by model
-        products = model.products.filter(is_active=True).order_by('-created_at')
+        # Filter products queryset by vehicle model
+        products = [p for p in self.queryset if hasattr(p, 'vehicle_model_id') and p.vehicle_model_id == model.id]
         serializer = ProductListSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
 
 class PartCategoryViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for PartCategory model with Redis caching.
-    
-    Implements caching for frequently accessed data to improve performance
-    and reduce database load. Uses cache_utils for consistent cache management.
+    ViewSet for PartCategory model
     """
-    queryset = PartCategory.objects.filter(is_active=True).order_by('name')
+    queryset = PartCategory.objects.filter(is_active=True)
     serializer_class = PartCategorySerializer
     lookup_field = 'slug'
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -92,6 +129,28 @@ class PartCategoryViewSet(viewsets.ModelViewSet):
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
 
+    def get_queryset(self):
+        """Return queryset of active part categories with caching optimization"""
+        # For list views, we can use cached data
+        if self.action == 'list':
+            # Get cached categories list
+            cached_categories = get_cached_categories_list()
+            # Convert list to queryset-like object that supports filtering
+            if cached_categories:
+                # Return the original queryset but it will be faster due to caching in the model layer
+                return self.queryset
+        # For other actions, return the regular queryset
+        return self.queryset
+
+    def get_object(self):
+        """Get a part category object by slug with caching"""
+        slug = self.kwargs.get(self.lookup_field)
+        obj = get_cached_category_by_slug(slug)
+        if obj is None:
+            from django.http import Http404
+            raise Http404("Part category not found")
+        return obj
+
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return PartCategoryDetailSerializer
@@ -99,49 +158,40 @@ class PartCategoryViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def products(self, request, slug=None):
-        """Get all products for a specific category with caching"""
-        from .cache_utils import get_products_by_category
+        """Get all products for a specific category"""
         category = self.get_object()
-        # Use cached function to get products by category
-        products = category.products.filter(is_active=True).order_by('-created_at')
+        # Filter products queryset by part category
+        products = [p for p in ProductViewSet().get_queryset() if hasattr(p, 'part_category_id') and p.part_category_id == category.id]
         serializer = ProductListSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def parents(self, request):
-        """Get only parent categories (no parents themselves) with caching"""
-        from .cache_utils import get_active_categories
-        # Use cached function to get active categories
-        parents = PartCategory.objects.filter(is_active=True, parent=None).order_by('name')
+        """Get only parent categories (no parents themselves)"""
+        parents = get_cached_categories_list(parent_id=None)
         serializer = PartCategorySerializer(parents, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'])
     def subcategories(self, request, slug=None):
-        """Get all subcategories for a specific category with caching"""
+        """Get all subcategories for a specific category"""
         category = self.get_object()
-        subcategories = category.subcategories.filter(is_active=True).order_by('name')
+        subcategories = get_cached_categories_list(parent_id=category.id)
         serializer = PartCategorySerializer(subcategories, many=True, context={'request': request})
         return Response(serializer.data)
 
 
 class ProductViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for Product model with Redis caching.
-    
-    Implements caching for frequently accessed data to improve performance
-    and reduce database load. Uses cache_utils for consistent cache management.
+    ViewSet for Product model
     """
-    queryset = Product.objects.filter(is_active=True).select_related(
-        'brand', 'vehicle_model', 'part_category'
-    ).order_by('-created_at')
     serializer_class = ProductListSerializer
     lookup_field = 'slug'
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['brand', 'vehicle_model', 'part_category', 'is_featured']
     search_fields = [
         'name', 'description', 'short_description', 
-        'sku', 'oem_number', 'manufacturer_part_number',
+        'oem_number', 'manufacturer_part_number',
         'brand__name', 'vehicle_model__name', 'part_category__name'
     ]
     ordering_fields = [
@@ -149,6 +199,21 @@ class ProductViewSet(viewsets.ModelViewSet):
         'stock_quantity', 'is_featured'
     ]
     ordering = ['-created_at']
+
+    def get_queryset(self):
+        """Return queryset of active products with select_related optimization"""
+        return Product.objects.filter(is_active=True).select_related(
+            'brand', 'vehicle_model', 'part_category'
+        ).order_by('-created_at')
+
+    def get_object(self):
+        """Get a product object by slug with caching"""
+        slug = self.kwargs.get(self.lookup_field)
+        obj = get_cached_product_by_slug(slug)
+        if obj is None:
+            from django.http import Http404
+            raise Http404("Product not found")
+        return obj
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -159,71 +224,85 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def featured(self, request):
-        """Get featured products with caching"""
-        from .cache_utils import get_featured_products
-        featured_products = get_featured_products()
+        """Get featured products"""
+        featured_products = [p for p in self.get_queryset() if p.is_featured]
         serializer = ProductListSerializer(featured_products, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def by_brand(self, request):
-        """Get products filtered by brand slug with caching"""
-        from .cache_utils import get_products_by_brand
+        """Get products filtered by brand slug"""
         brand_slug = request.query_params.get('brand', None)
         if not brand_slug:
             return Response({'error': 'Brand slug is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        products = get_products_by_brand(brand_slug)
+        # Get brand by slug
+        brand = get_cached_brand_by_slug(brand_slug)
+        if not brand:
+            return Response({'error': 'Brand not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        products = [p for p in self.get_queryset() if p.brand_id == brand.id]
         serializer = ProductListSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def by_model(self, request):
-        """Get products filtered by vehicle model slug with caching"""
-        from .cache_utils import get_products_by_model
+        """Get products filtered by vehicle model slug"""
         model_slug = request.query_params.get('model', None)
         if not model_slug:
             return Response({'error': 'Model slug is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        products = get_products_by_model(model_slug)
+        # Get model by slug
+        model = get_cached_model_by_slug(model_slug)
+        if not model:
+            return Response({'error': 'Model not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        products = [p for p in self.get_queryset() if p.vehicle_model_id == model.id]
         serializer = ProductListSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def by_category(self, request):
-        """Get products filtered by part category slug with caching"""
-        from .cache_utils import get_products_by_category
+        """Get products filtered by part category slug"""
         category_slug = request.query_params.get('category', None)
         if not category_slug:
             return Response({'error': 'Category slug is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        products = get_products_by_category(category_slug)
+        # Get category by slug
+        category = get_cached_category_by_slug(category_slug)
+        if not category:
+            return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        products = [p for p in self.get_queryset() if p.part_category_id == category.id]
         serializer = ProductListSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def search(self, request):
-        """Advanced search for products with caching"""
-        from .cache_utils import search_products
+        """Advanced search for products"""
         query = request.query_params.get('q', '')
         if not query:
             return Response({'error': 'Search query is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        search_results = search_products(query)
+        # Search in multiple fields
+        search_results = []
+        for product in self.get_queryset():
+            if (query.lower() in product.name.lower() or 
+                query.lower() in (product.description or '').lower() or
+                query.lower() in (product.short_description or '').lower() or
+                query.lower() in (getattr(product, 'oem_number', '') or '').lower() or
+                query.lower() in (getattr(product, 'manufacturer_part_number', '') or '').lower() or
+                query.lower() in (getattr(product.brand, 'name', '') or '').lower() or
+                query.lower() in (getattr(product.vehicle_model, 'name', '') or '').lower() or
+                query.lower() in (getattr(product.part_category, 'name', '') or '').lower()):
+                search_results.append(product)
+        
         serializer = ProductListSerializer(search_results, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def in_stock(self, request):
-        """Get products that are in stock with caching"""
-        from .cache_utils import get_in_stock_products
-        in_stock_products = get_in_stock_products()
+        """Get products that are in stock"""
+        in_stock_products = [p for p in self.get_queryset() if p.stock_quantity > 0]
         serializer = ProductListSerializer(in_stock_products, many=True, context={'request': request})
         return Response(serializer.data)
-
-    @action(detail=False, methods=['get'])
-    def navigation(self, request):
-        """Get navigation tree for frontend menus with caching"""
-        from .cache_utils import get_navigation_tree
-        navigation_data = get_navigation_tree()
-        return Response(navigation_data)

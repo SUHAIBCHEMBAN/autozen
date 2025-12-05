@@ -29,6 +29,9 @@ The wishlist app allows users to save products they're interested in for later p
 - Proper indexing
 - Prefetching related data
 - Clean serialization
+- **Redis caching for 0 database queries**
+- Automatic cache invalidation
+- Configurable cache timeouts
 
 ### Security Focused
 - User-specific access control
@@ -85,12 +88,17 @@ python manage.py test_wishlist
 
 ## Helper Utilities
 
-The `utils.py` file provides functions for:
-- Adding items to wishlist
-- Removing items from wishlist
-- Clearing wishlist
-- Checking if product is in wishlist
-- Getting wishlist item count
+The `utils.py` file provides legacy functions (deprecated).
+
+The `cache_utils.py` file provides enhanced caching functions for:
+- Adding items to wishlist with automatic cache invalidation
+- Removing items from wishlist with automatic cache invalidation
+- Clearing wishlist with automatic cache invalidation
+- Checking if product is in wishlist using cache
+- Getting wishlist item count from cache
+- Retrieving wishlist and wishlist items from cache
+
+See [CACHING_README.md](CACHING_README.md) for detailed caching implementation documentation.
 
 ## Best Practices Implemented
 
@@ -107,6 +115,9 @@ The `utils.py` file provides functions for:
    - Proper indexing on frequently queried fields
    - Efficient querying patterns
    - Select/prefetch related optimizations
+   - **Redis caching for 0 database queries on repeated requests**
+   - **Automatic cache invalidation on data changes**
+   - **Configurable cache timeouts for optimal performance**
 
 4. **Scalability**
    - Modular design with clear separation of concerns
@@ -148,7 +159,7 @@ The `utils.py` file provides functions for:
 
 ### Adding an Item to Wishlist
 ```python
-from wishlist.utils import add_to_wishlist
+from wishlist.cache_utils import add_to_wishlist_with_cache
 from django.contrib.auth import get_user_model
 from products.models import Product
 
@@ -156,24 +167,24 @@ User = get_user_model()
 user = User.objects.get(email="customer@example.com")
 product = Product.objects.get(sku="SW-001")
 
-result = add_to_wishlist(user, product.id)
+result = add_to_wishlist_with_cache(user, product.id)
 if result['success']:
     print(result['message'])
 ```
 
 ### Checking if Product is in Wishlist
 ```python
-from wishlist.utils import is_product_in_wishlist
+from wishlist.cache_utils import is_product_in_wishlist_cached
 
-if is_product_in_wishlist(user, product.id):
+if is_product_in_wishlist_cached(user.id, product.id):
     print("Product is in wishlist")
 ```
 
 ### Getting Wishlist Items
 ```python
-from wishlist.utils import get_wishlist_items
+from wishlist.cache_utils import get_cached_wishlist_items
 
-items = get_wishlist_items(user)
+items = get_cached_wishlist_items(user.id)
 for item in items:
     print(f"{item.product.name} - Added: {item.added_at}")
 ```

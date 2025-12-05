@@ -182,10 +182,20 @@ LANDING_CONTENT_CACHE_TIMEOUT = 60 * 15  # 15 minutes for landing page content
 LANDING_CONFIG_CACHE_TIMEOUT = 60 * 60   # 1 hour for configuration (changes less frequently)
 
 # Pages cache timeout settings
-PAGES_CONTENT_CACHE_TIMEOUT = 60 * 15  # 15 minutes for pages content
+PAGES_CONTENT_CACHE_TIMEOUT = 60 * 15  # 15 minutes
 
-# Products cache timeout settings
-PRODUCTS_CACHE_TIMEOUT = 60 * 15  # 15 minutes for products content
+# Wishlist cache timeout settings
+WISHLIST_CACHE_TIMEOUT = 60 * 15  # 15 minutes
+WISHLIST_ITEM_CACHE_TIMEOUT = 60 * 15  # 15 minutes for pages content
+
+# Payment cache timeout settings
+PAYMENT_CONFIG_CACHE_TIMEOUT = 60 * 60   # 1 hour for payment configurations
+TRANSACTION_CACHE_TIMEOUT = 60 * 15      # 15 minutes for transactions
+REFUND_CACHE_TIMEOUT = 60 * 15           # 15 minutes for refunds
+
+# Users cache timeout settings
+USER_CACHE_TIMEOUT = 60 * 15  # 15 minutes
+OTP_CACHE_TIMEOUT = 60 * 10   # 10 minutes for OTP codes
 
 # Fallback to local memory cache if Redis is not available in development
 try:

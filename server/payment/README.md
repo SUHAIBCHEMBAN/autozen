@@ -111,6 +111,19 @@ The `utils.py` file provides functions for:
 - Creating refunds
 - Initializing the payment system
 
+## Performance
+
+### Caching Implementation
+
+The payment app implements comprehensive caching using Django's core cache framework with Redis as the backend:
+
+1. **Payment Configurations**: Cached for 1 hour (less frequent changes)
+2. **Transactions**: Cached for 15 minutes (more dynamic data)
+3. **User Transaction Lists**: Cached for 15 minutes
+4. **Refunds**: Cached for 15 minutes
+
+See [CACHING_README.md](CACHING_README.md) for detailed caching implementation documentation.
+
 ## Best Practices Implemented
 
 1. **Data Integrity**
@@ -127,6 +140,7 @@ The `utils.py` file provides functions for:
    - Proper indexing on frequently queried fields
    - Efficient querying patterns
    - Atomic database operations
+   - Redis-based caching for frequently accessed data
 
 4. **Developer Experience**
    - Comprehensive documentation

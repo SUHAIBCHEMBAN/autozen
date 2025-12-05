@@ -280,6 +280,7 @@ The API implements rate limiting to prevent abuse. Exceeding the limit will resu
 - Database indexing on frequently queried fields
 - Efficient serialization
 - Atomic database operations for consistency
+- Redis-based caching for frequently accessed data (0-query pattern)
 
 ## Integration with Other Systems
 

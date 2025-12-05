@@ -1,11 +1,42 @@
+"""
+Models for the users app.
+
+This module defines the custom user model and manager for the application.
+It includes authentication fields and cache invalidation signals.
+"""
+
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.core.validators import RegexValidator
 from django.utils import timezone
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.core.cache import cache
 
 
 class CustomUserManager(BaseUserManager):
+    """
+    Custom manager for the User model.
+    
+    Provides methods for creating regular users and superusers with email/phone authentication.
+    """
+    
     def create_user(self, email=None, phone_number=None, password=None, **extra_fields):
+        """
+        Create and return a regular user with an email or phone number.
+        
+        Args:
+            email (str, optional): User's email address
+            phone_number (str, optional): User's phone number
+            password (str): User's password
+            **extra_fields: Additional fields for the user model
+            
+        Returns:
+            User: The created user instance
+            
+        Raises:
+            ValueError: If neither email nor phone number is provided
+        """
         if not email and not phone_number:
             raise ValueError('The Email or Phone Number must be set')
         
@@ -16,6 +47,21 @@ class CustomUserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email=None, phone_number=None, password=None, **extra_fields):
+        """
+        Create and return a superuser with an email or phone number.
+        
+        Args:
+            email (str, optional): Superuser's email address
+            phone_number (str, optional): Superuser's phone number
+            password (str): Superuser's password
+            **extra_fields: Additional fields for the superuser model
+            
+        Returns:
+            User: The created superuser instance
+            
+        Raises:
+            ValueError: If is_staff or is_superuser is not set to True
+        """
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
@@ -29,6 +75,16 @@ class CustomUserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    """
+    Custom user model that supports authentication with email or phone number.
+    
+    Attributes:
+        email (EmailField): Unique email address (optional)
+        phone_number (CharField): Unique phone number (optional)
+        is_active (BooleanField): Whether the user account is active
+        is_staff (BooleanField): Whether the user can access the admin site
+        date_joined (DateTimeField): When the user account was created
+    """
     email = models.EmailField(unique=True, null=True, blank=True)
     phone_number = models.CharField(
         max_length=15, 
@@ -47,6 +103,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = ['phone_number']
 
     def __str__(self):
+        """
+        Return a string representation of the user.
+        
+        Returns:
+            str: User's email, phone number, or ID
+        """
         if self.email:
             return self.email
         elif self.phone_number:
@@ -55,3 +117,22 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         db_table = 'users'
+
+
+@receiver(post_save, sender=User)
+@receiver(post_delete, sender=User)
+def invalidate_user_cache(sender, instance, **kwargs):
+    """
+    Signal handler to invalidate user cache when user data is saved or deleted.
+    
+    This ensures that cached user data stays consistent with database records.
+    
+    Args:
+        sender: The model class
+        instance: The actual instance being saved or deleted
+        **kwargs: Additional keyword arguments
+    """
+    if instance.email:
+        cache.delete(f"user_{instance.email}")
+    if instance.phone_number:
+        cache.delete(f"user_{instance.phone_number}")

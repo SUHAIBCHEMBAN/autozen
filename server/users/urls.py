@@ -1,3 +1,10 @@
+"""
+URL configuration for the users app.
+
+This module defines the URL patterns for user authentication endpoints,
+including OTP sending and verification.
+"""
+
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import SendOTPView, VerifyOTPView

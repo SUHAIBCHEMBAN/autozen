@@ -1,502 +1,470 @@
 """
-Cache utilities for the products app.
-
-This module provides caching functions for common product-related queries
-to improve performance and reduce database load.
+Cache utilities for the products app
+Provides optimized caching functions for brands, models, categories and products
 """
-
+import logging
 from django.core.cache import cache
-from django.conf import settings
-from .models import Brand, VehicleModel, PartCategory, Product
+from django.db import models
+
+logger = logging.getLogger(__name__)
+
+# Cache timeout constants (in seconds)
+BRAND_CACHE_TIMEOUT = 60 * 15  # 15 minutes
+MODEL_CACHE_TIMEOUT = 60 * 15  # 15 minutes
+CATEGORY_CACHE_TIMEOUT = 60 * 15  # 15 minutes
+PRODUCT_CACHE_TIMEOUT = 60 * 10  # 10 minutes
+
+# Cache key prefixes
+BRAND_PREFIX = 'products_brand'
+MODEL_PREFIX = 'products_model'
+CATEGORY_PREFIX = 'products_category'
+PRODUCT_PREFIX = 'products_product'
 
 
-def get_products_cache_timeout():
+def get_cache_key(prefix, identifier, extra_suffix=''):
     """
-    Get cache timeout for products from settings or default to 15 minutes.
+    Generate a standardized cache key
     
-    Retrieves the PRODUCTS_CACHE_TIMEOUT setting from Django settings,
-    defaulting to 15 minutes (900 seconds) if not configured.
+    Args:
+        prefix (str): Key prefix for the cache type
+        identifier (str/int): Unique identifier for the object
+        extra_suffix (str): Additional suffix for specific cache keys
+        
+    Returns:
+        str: Formatted cache key
+    """
+    if extra_suffix:
+        return f"{prefix}_{identifier}_{extra_suffix}"
+    return f"{prefix}_{identifier}"
+
+
+def get_brand_list_cache_key():
+    """Get cache key for the complete list of brands"""
+    return f"{BRAND_PREFIX}_list"
+
+
+def get_model_list_cache_key(brand_id=None):
+    """Get cache key for the list of models, optionally filtered by brand"""
+    if brand_id:
+        return f"{MODEL_PREFIX}_list_brand_{brand_id}"
+    return f"{MODEL_PREFIX}_list"
+
+
+def get_category_list_cache_key(parent_id=None):
+    """Get cache key for the list of categories, optionally filtered by parent"""
+    if parent_id is not None:
+        return f"{CATEGORY_PREFIX}_list_parent_{parent_id}"
+    return f"{CATEGORY_PREFIX}_list"
+
+
+def get_cached_brand(brand_id):
+    """
+    Get a brand by ID with caching
+    
+    Args:
+        brand_id (int): The ID of the brand
+        
+    Returns:
+        Brand: The brand instance or None if not found
+    """
+    from .models import Brand  # Import here to avoid circular import
+    
+    cache_key = get_cache_key(BRAND_PREFIX, brand_id)
+    cached_brand = cache.get(cache_key)
+    
+    if cached_brand is not None:
+        return cached_brand
+        
+    try:
+        brand = Brand.objects.get(id=brand_id)
+        cache.set(cache_key, brand, BRAND_CACHE_TIMEOUT)
+        return brand
+    except Brand.DoesNotExist:
+        return None
+
+
+def get_cached_brand_by_slug(slug):
+    """
+    Get a brand by slug with caching
+    
+    Args:
+        slug (str): The slug of the brand
+        
+    Returns:
+        Brand: The brand instance or None if not found
+    """
+    from .models import Brand  # Import here to avoid circular import
+    
+    cache_key = get_cache_key(BRAND_PREFIX, f"slug_{slug}")
+    cached_brand = cache.get(cache_key)
+    
+    if cached_brand is not None:
+        return cached_brand
+        
+    try:
+        brand = Brand.objects.get(slug=slug)
+        cache.set(cache_key, brand, BRAND_CACHE_TIMEOUT)
+        return brand
+    except Brand.DoesNotExist:
+        return None
+
+
+def get_cached_brands_list():
+    """
+    Get all active brands with caching
     
     Returns:
-        int: Cache timeout in seconds
+        QuerySet: Cached queryset of all active brands
     """
-    return getattr(settings, 'PRODUCTS_CACHE_TIMEOUT', 60 * 15)
-
-
-def invalidate_brand_cache(brand_id):
-    """
-    Invalidate all cache entries for a brand.
+    from .models import Brand  # Import here to avoid circular import
     
-    Deletes cached data for brand-related information including:
-    - Brand models count
-    - Brand models list
-    
-    Args:
-        brand_id (int): The ID of the brand whose cache to invalidate
-    """
-    cache_keys = [
-        f'brand_models_count_{brand_id}',
-        f'brand_models_{brand_id}',
-    ]
-    cache.delete_many(cache_keys)
-
-
-def invalidate_vehicle_model_cache(model_id):
-    """
-    Invalidate all cache entries for a vehicle model.
-    
-    Deletes cached data for vehicle model-related information including:
-    - Vehicle model products count
-    - Vehicle model products list
-    
-    Args:
-        model_id (int): The ID of the vehicle model whose cache to invalidate
-    """
-    cache_keys = [
-        f'vehicle_model_products_count_{model_id}',
-        f'vehicle_model_products_{model_id}',
-    ]
-    cache.delete_many(cache_keys)
-
-
-def invalidate_part_category_cache(category_id):
-    """
-    Invalidate all cache entries for a part category.
-    
-    Deletes cached data for part category-related information including:
-    - Part category subcategories count
-    - Part category subcategories list
-    - Part category products list
-    - Part category instance
-    - Part category is_parent flag
-    - Part category full path
-    
-    Args:
-        category_id (int): The ID of the part category whose cache to invalidate
-    """
-    cache_keys = [
-        f'part_category_subcategories_count_{category_id}',
-        f'part_category_subcategories_{category_id}',
-        f'part_category_products_{category_id}',
-        f'part_category_instance_{category_id}',
-        f'part_category_is_parent_{category_id}',
-        f'part_category_full_path_{category_id}',
-    ]
-    cache.delete_many(cache_keys)
-
-
-def invalidate_product_cache(product_id=None, sku=None):
-    """
-    Invalidate cache entries for a product.
-    
-    Args:
-        product_id (int, optional): The ID of the product whose cache to invalidate
-        sku (str, optional): The SKU of the product whose cache to invalidate
-    """
-    cache_keys = []
-    if product_id:
-        cache_keys.append(f'product_instance_{product_id}')
-    if sku:
-        cache_keys.append(f'product_by_sku_{sku}')
-    
-    if cache_keys:
-        cache.delete_many(cache_keys)
-
-
-def get_active_brands():
-    """
-    Get all active brands with Redis caching.
-    
-    Retrieves all active brands ordered by name with caching for improved
-    performance and reduced database queries.
-    
-    Returns:
-        QuerySet: Active Brand objects ordered by name
-    """
-    cache_key = 'active_brands'
+    cache_key = get_brand_list_cache_key()
     cached_brands = cache.get(cache_key)
     
     if cached_brands is not None:
         return cached_brands
-    
-    brands = Brand.objects.filter(is_active=True).order_by('name')
-    cache.set(cache_key, brands, get_products_cache_timeout())
+        
+    brands = list(Brand.objects.filter(is_active=True).order_by('name'))
+    cache.set(cache_key, brands, BRAND_CACHE_TIMEOUT)
     return brands
 
 
-def get_active_categories():
+def get_cached_model(model_id):
     """
-    Get all active categories with Redis caching.
+    Get a vehicle model by ID with caching
     
-    Retrieves all active categories ordered by name with caching for improved
-    performance and reduced database queries.
-    
+    Args:
+        model_id (int): The ID of the vehicle model
+        
     Returns:
-        QuerySet: Active PartCategory objects ordered by name
+        VehicleModel: The vehicle model instance or None if not found
     """
-    cache_key = 'active_categories'
-    cached_categories = cache.get(cache_key)
+    from .models import VehicleModel  # Import here to avoid circular import
     
-    if cached_categories is not None:
-        return cached_categories
+    cache_key = get_cache_key(MODEL_PREFIX, model_id)
+    cached_model = cache.get(cache_key)
     
-    categories = PartCategory.objects.filter(is_active=True).order_by('name')
-    cache.set(cache_key, categories, get_products_cache_timeout())
-    return categories
+    if cached_model is not None:
+        return cached_model
+        
+    try:
+        model = VehicleModel.objects.select_related('brand').get(id=model_id)
+        cache.set(cache_key, model, MODEL_CACHE_TIMEOUT)
+        return model
+    except VehicleModel.DoesNotExist:
+        return None
 
 
-def get_active_models():
+def get_cached_model_by_slug(slug):
     """
-    Get all active vehicle models with Redis caching.
+    Get a vehicle model by slug with caching
     
-    Retrieves all active vehicle models ordered by brand and name with caching
-    for improved performance and reduced database queries.
-    
+    Args:
+        slug (str): The slug of the vehicle model
+        
     Returns:
-        QuerySet: Active VehicleModel objects ordered by brand and name
+        VehicleModel: The vehicle model instance or None if not found
     """
-    cache_key = 'active_models'
+    from .models import VehicleModel  # Import here to avoid circular import
+    
+    cache_key = get_cache_key(MODEL_PREFIX, f"slug_{slug}")
+    cached_model = cache.get(cache_key)
+    
+    if cached_model is not None:
+        return cached_model
+        
+    try:
+        model = VehicleModel.objects.select_related('brand').get(slug=slug)
+        cache.set(cache_key, model, MODEL_CACHE_TIMEOUT)
+        return model
+    except VehicleModel.DoesNotExist:
+        return None
+
+
+def get_cached_models_list(brand_id=None):
+    """
+    Get all active models with caching, optionally filtered by brand
+    
+    Args:
+        brand_id (int, optional): Filter models by brand ID
+        
+    Returns:
+        list: Cached list of vehicle models
+    """
+    from .models import VehicleModel  # Import here to avoid circular import
+    
+    cache_key = get_model_list_cache_key(brand_id)
     cached_models = cache.get(cache_key)
     
     if cached_models is not None:
         return cached_models
-    
-    models = VehicleModel.objects.filter(is_active=True).select_related('brand').order_by('brand', 'name')
-    cache.set(cache_key, models, get_products_cache_timeout())
+        
+    queryset = VehicleModel.objects.filter(is_active=True).select_related('brand')
+    if brand_id:
+        queryset = queryset.filter(brand_id=brand_id)
+        
+    models = list(queryset.order_by('brand', 'name'))
+    cache.set(cache_key, models, MODEL_CACHE_TIMEOUT)
     return models
 
 
-def get_featured_products(limit=12):
+def get_cached_category(category_id):
     """
-    Get featured products with Redis caching.
-    
-    Retrieves featured products ordered by creation date with caching
-    for improved performance and reduced database queries.
+    Get a part category by ID with caching
     
     Args:
-        limit (int): Maximum number of products to return (default: 12)
+        category_id (int): The ID of the part category
         
     Returns:
-        QuerySet: Active featured Product objects ordered by creation date
+        PartCategory: The part category instance or None if not found
     """
-    cache_key = f'featured_products_{limit}'
-    cached_products = cache.get(cache_key)
+    from .models import PartCategory  # Import here to avoid circular import
     
-    if cached_products is not None:
-        return cached_products
+    cache_key = get_cache_key(CATEGORY_PREFIX, category_id)
+    cached_category = cache.get(cache_key)
     
-    products = Product.objects.filter(
-        is_active=True,
-        is_featured=True
-    ).select_related(
-        'brand', 'vehicle_model', 'part_category'
-    ).order_by('-created_at')[:limit]
-    
-    cache.set(cache_key, products, get_products_cache_timeout())
-    return products
-
-
-def get_products_by_brand(brand_slug, limit=50):
-    """
-    Get products by brand with Redis caching.
-    
-    Retrieves products for a specific brand with caching for improved
-    performance and reduced database queries.
-    
-    Args:
-        brand_slug (str): The slug of the brand to filter by
-        limit (int): Maximum number of products to return (default: 50)
+    if cached_category is not None:
+        return cached_category
         
-    Returns:
-        QuerySet: Product objects for the specified brand
-    """
-    cache_key = f'products_by_brand_{brand_slug}_{limit}'
-    cached_products = cache.get(cache_key)
-    
-    if cached_products is not None:
-        return cached_products
-    
     try:
-        brand = Brand.objects.get(slug=brand_slug, is_active=True)
-        products = Product.objects.filter(
-            brand=brand,
-            is_active=True
-        ).select_related(
-            'brand', 'vehicle_model', 'part_category'
-        ).order_by('-created_at')[:limit]
-        
-        cache.set(cache_key, products, get_products_cache_timeout())
-        return products
-    except Brand.DoesNotExist:
-        return Product.objects.none()
-
-
-def get_products_by_category(category_slug, limit=50):
-    """
-    Get products by category with Redis caching.
-    
-    Retrieves products for a specific category with caching for improved
-    performance and reduced database queries.
-    
-    Args:
-        category_slug (str): The slug of the category to filter by
-        limit (int): Maximum number of products to return (default: 50)
-        
-    Returns:
-        QuerySet: Product objects for the specified category
-    """
-    cache_key = f'products_by_category_{category_slug}_{limit}'
-    cached_products = cache.get(cache_key)
-    
-    if cached_products is not None:
-        return cached_products
-    
-    try:
-        category = PartCategory.objects.get(slug=category_slug, is_active=True)
-        products = Product.objects.filter(
-            part_category=category,
-            is_active=True
-        ).select_related(
-            'brand', 'vehicle_model', 'part_category'
-        ).order_by('-created_at')[:limit]
-        
-        cache.set(cache_key, products, get_products_cache_timeout())
-        return products
+        category = PartCategory.objects.get(id=category_id)
+        cache.set(cache_key, category, CATEGORY_CACHE_TIMEOUT)
+        return category
     except PartCategory.DoesNotExist:
-        return Product.objects.none()
+        return None
 
 
-def get_products_by_model(model_slug, limit=50):
+def get_cached_category_by_slug(slug):
     """
-    Get products by vehicle model with Redis caching.
-    
-    Retrieves products for a specific vehicle model with caching for improved
-    performance and reduced database queries.
+    Get a part category by slug with caching
     
     Args:
-        model_slug (str): The slug of the vehicle model to filter by
-        limit (int): Maximum number of products to return (default: 50)
+        slug (str): The slug of the part category
         
     Returns:
-        QuerySet: Product objects for the specified vehicle model
+        PartCategory: The part category instance or None if not found
     """
-    cache_key = f'products_by_model_{model_slug}_{limit}'
-    cached_products = cache.get(cache_key)
+    from .models import PartCategory  # Import here to avoid circular import
     
-    if cached_products is not None:
-        return cached_products
+    cache_key = get_cache_key(CATEGORY_PREFIX, f"slug_{slug}")
+    cached_category = cache.get(cache_key)
+    
+    if cached_category is not None:
+        return cached_category
+        
+    try:
+        category = PartCategory.objects.get(slug=slug)
+        cache.set(cache_key, category, CATEGORY_CACHE_TIMEOUT)
+        return category
+    except PartCategory.DoesNotExist:
+        return None
+
+
+def get_cached_categories_list(parent_id=None):
+    """
+    Get all active categories with caching, optionally filtered by parent
+    
+    Args:
+        parent_id (int, optional): Filter categories by parent ID (None for top-level)
+        
+    Returns:
+        list: Cached list of part categories
+    """
+    from .models import PartCategory  # Import here to avoid circular import
+    
+    cache_key = get_category_list_cache_key(parent_id)
+    cached_categories = cache.get(cache_key)
+    
+    if cached_categories is not None:
+        return cached_categories
+        
+    queryset = PartCategory.objects.filter(is_active=True)
+    if parent_id is not None:
+        queryset = queryset.filter(parent_id=parent_id)
+        
+    categories = list(queryset.order_by('name'))
+    cache.set(cache_key, categories, CATEGORY_CACHE_TIMEOUT)
+    return categories
+
+
+def get_cached_product(product_id):
+    """
+    Get a product by ID with caching
+    
+    Args:
+        product_id (int): The ID of the product
+        
+    Returns:
+        Product: The product instance or None if not found
+    """
+    from .models import Product  # Import here to avoid circular import
+    
+    cache_key = get_cache_key(PRODUCT_PREFIX, product_id)
+    cached_product = cache.get(cache_key)
+    
+    if cached_product is not None:
+        return cached_product
+        
+    try:
+        product = Product.objects.select_related(
+            'brand', 'vehicle_model', 'part_category'
+        ).get(id=product_id)
+        cache.set(cache_key, product, PRODUCT_CACHE_TIMEOUT)
+        return product
+    except Product.DoesNotExist:
+        return None
+
+
+def get_cached_product_by_slug(slug):
+    """
+    Get a product by slug with caching
+    
+    Args:
+        slug (str): The slug of the product
+        
+    Returns:
+        Product: The product instance or None if not found
+    """
+    from .models import Product  # Import here to avoid circular import
+    
+    cache_key = get_cache_key(PRODUCT_PREFIX, f"slug_{slug}")
+    cached_product = cache.get(cache_key)
+    
+    if cached_product is not None:
+        return cached_product
+        
+    try:
+        product = Product.objects.select_related(
+            'brand', 'vehicle_model', 'part_category'
+        ).get(slug=slug)
+        cache.set(cache_key, product, PRODUCT_CACHE_TIMEOUT)
+        return product
+    except Product.DoesNotExist:
+        return None
+
+
+def invalidate_brand_cache(brand_id):
+    """
+    Invalidate all cache entries related to a brand
+    
+    Args:
+        brand_id (int): The ID of the brand to invalidate
+    """
+    from .models import Brand  # Import here to avoid circular import
     
     try:
-        model = VehicleModel.objects.get(slug=model_slug, is_active=True)
-        products = Product.objects.filter(
-            vehicle_model=model,
-            is_active=True
-        ).select_related(
-            'brand', 'vehicle_model', 'part_category'
-        ).order_by('-created_at')[:limit]
-        
-        cache.set(cache_key, products, get_products_cache_timeout())
-        return products
+        brand = Brand.objects.get(id=brand_id)
+        cache_keys = [
+            get_cache_key(BRAND_PREFIX, brand_id),
+            get_cache_key(BRAND_PREFIX, f"slug_{brand.slug}"),
+            get_brand_list_cache_key(),
+            get_model_list_cache_key(brand_id),
+        ]
+        cache.delete_many(cache_keys)
+        logger.info(f"Invalidated cache for brand {brand_id}")
+    except Brand.DoesNotExist:
+        # If brand doesn't exist, just invalidate the list cache
+        cache_keys = [
+            get_brand_list_cache_key(),
+        ]
+        cache.delete_many(cache_keys)
+        logger.info(f"Invalidated brand list cache after brand {brand_id} deletion")
+
+
+def invalidate_model_cache(model_id, brand_id=None):
+    """
+    Invalidate all cache entries related to a vehicle model
+    
+    Args:
+        model_id (int): The ID of the vehicle model to invalidate
+        brand_id (int, optional): The brand ID if known
+    """
+    from .models import VehicleModel  # Import here to avoid circular import
+    
+    cache_keys = [
+        get_cache_key(MODEL_PREFIX, model_id),
+        get_model_list_cache_key(),
+    ]
+    
+    try:
+        model = VehicleModel.objects.get(id=model_id)
+        cache_keys.append(get_cache_key(MODEL_PREFIX, f"slug_{model.slug}"))
+        if brand_id or model.brand_id:
+            brand_id = brand_id or model.brand_id
+            cache_keys.append(get_model_list_cache_key(brand_id))
     except VehicleModel.DoesNotExist:
-        return Product.objects.none()
-
-
-def get_product_by_slug(product_slug):
-    """
-    Get a product by slug with Redis caching.
+        # If model doesn't exist, we still want to invalidate lists
+        if brand_id:
+            cache_keys.append(get_model_list_cache_key(brand_id))
     
-    Retrieves a specific product by its slug with caching for improved
-    performance and reduced database queries.
+    cache.delete_many(cache_keys)
+    logger.info(f"Invalidated cache for model {model_id}")
+
+
+def invalidate_category_cache(category_id, parent_id=None):
+    """
+    Invalidate all cache entries related to a part category
     
     Args:
-        product_slug (str): The slug of the product to retrieve
-        
-    Returns:
-        Product: The product object or None if not found
+        category_id (int): The ID of the part category to invalidate
+        parent_id (int, optional): The parent ID if known
     """
-    cache_key = f'product_by_slug_{product_slug}'
-    cached_product = cache.get(cache_key)
+    from .models import PartCategory  # Import here to avoid circular import
     
-    if cached_product is not None:
-        return cached_product
+    cache_keys = [
+        get_cache_key(CATEGORY_PREFIX, category_id),
+        get_category_list_cache_key(),
+    ]
     
     try:
-        product = Product.objects.select_related(
-            'brand', 'vehicle_model', 'part_category'
-        ).get(slug=product_slug, is_active=True)
-        cache.set(cache_key, product, get_products_cache_timeout())
-        return product
-    except Product.DoesNotExist:
-        return None
-
-
-def get_product_by_sku(product_sku):
-    """
-    Get a product by SKU with Redis caching.
+        category = PartCategory.objects.get(id=category_id)
+        cache_keys.append(get_cache_key(CATEGORY_PREFIX, f"slug_{category.slug}"))
+        if parent_id or category.parent_id:
+            parent_id = parent_id or category.parent_id
+            cache_keys.append(get_category_list_cache_key(parent_id))
+        if parent_id is None:
+            cache_keys.append(get_category_list_cache_key(None))
+    except PartCategory.DoesNotExist:
+        # If category doesn't exist, we still want to invalidate lists
+        if parent_id is not None:
+            cache_keys.append(get_category_list_cache_key(parent_id))
+        else:
+            cache_keys.append(get_category_list_cache_key(None))
     
-    Retrieves a specific product by its SKU with caching for improved
-    performance and reduced database queries.
+    cache.delete_many(cache_keys)
+    logger.info(f"Invalidated cache for category {category_id}")
+
+
+def invalidate_product_cache(product_id):
+    """
+    Invalidate all cache entries related to a product
     
     Args:
-        product_sku (str): The SKU of the product to retrieve
-        
-    Returns:
-        Product: The product object or None if not found
+        product_id (int): The ID of the product to invalidate
     """
-    cache_key = f'product_by_sku_{product_sku}'
-    cached_product = cache.get(cache_key)
+    from .models import Product  # Import here to avoid circular import
     
-    if cached_product is not None:
-        return cached_product
-    
+    cache_keys = [
+        get_cache_key(PRODUCT_PREFIX, product_id),
+    ]
     try:
-        product = Product.objects.select_related(
-            'brand', 'vehicle_model', 'part_category'
-        ).get(sku=product_sku, is_active=True)
-        cache.set(cache_key, product, get_products_cache_timeout())
-        return product
+        product = Product.objects.get(id=product_id)
+        cache_keys.append(get_cache_key(PRODUCT_PREFIX, f"slug_{product.slug}"))
     except Product.DoesNotExist:
-        return None
+        pass
+    cache.delete_many(cache_keys)
+    logger.info(f"Invalidated cache for product {product_id}")
 
 
-def search_products(query, limit=50):
+def invalidate_all_products_cache():
     """
-    Search products with Redis caching.
-    
-    Searches products by name, description, SKU, and related fields with
-    caching for improved performance and reduced database queries.
-    
-    Args:
-        query (str): The search query
-        limit (int): Maximum number of products to return (default: 50)
-        
-    Returns:
-        QuerySet: Product objects matching the search query
+    Invalidate all product-related cache entries
+    This should be called when bulk operations affect products
     """
-    # Sanitize query for cache key
-    sanitized_query = ''.join(c if c.isalnum() or c in '-_' else '_' for c in query)[:50]
-    cache_key = f'search_products_{sanitized_query}_{limit}'
-    cached_products = cache.get(cache_key)
-    
-    if cached_products is not None:
-        return cached_products
-    
-    from django.db.models import Q
-    products = Product.objects.filter(
-        Q(name__icontains=query) |
-        Q(description__icontains=query) |
-        Q(short_description__icontains=query) |
-        Q(sku__icontains=query) |
-        Q(brand__name__icontains=query) |
-        Q(vehicle_model__name__icontains=query) |
-        Q(part_category__name__icontains=query)
-    ).filter(
-        is_active=True
-    ).select_related(
-        'brand', 'vehicle_model', 'part_category'
-    ).distinct().order_by('-created_at')[:limit]
-    
-    cache.set(cache_key, products, get_products_cache_timeout())
-    return products
-
-
-def get_in_stock_products(limit=50):
-    """
-    Get in-stock products with Redis caching.
-    
-    Retrieves products that are currently in stock with caching for improved
-    performance and reduced database queries.
-    
-    Args:
-        limit (int): Maximum number of products to return (default: 50)
-        
-    Returns:
-        QuerySet: In-stock Product objects ordered by creation date
-    """
-    cache_key = f'in_stock_products_{limit}'
-    cached_products = cache.get(cache_key)
-    
-    if cached_products is not None:
-        return cached_products
-    
-    from django.db.models import Q
-    products = Product.objects.filter(
-        Q(is_active=True) & (
-            Q(track_inventory=False) | 
-            Q(stock_quantity__gt=0) | 
-            Q(continue_selling=True)
-        )
-    ).select_related(
-        'brand', 'vehicle_model', 'part_category'
-    ).order_by('-created_at')[:limit]
-    
-    cache.set(cache_key, products, get_products_cache_timeout())
-    return products
-
-
-def get_navigation_tree():
-    """
-    Generate a navigation tree for brands, models, and categories with caching.
-    
-    Creates a hierarchical navigation structure for frontend menus with caching
-    for improved performance and reduced database queries.
-    
-    Returns:
-        dict: Navigation data structure containing brands and categories
-    """
-    cache_key = 'navigation_tree'
-    cached_nav = cache.get(cache_key)
-    
-    if cached_nav is not None:
-        return cached_nav
-    
-    # Get all active brands with their models
-    brands = Brand.objects.filter(is_active=True).prefetch_related('models')
-    
-    # Get top-level categories with subcategories
-    categories = PartCategory.objects.filter(
-        is_active=True, 
-        parent=None
-    ).prefetch_related('subcategories')
-    
-    navigation_data = {
-        'brands': [],
-        'categories': []
-    }
-    
-    # Build brand hierarchy
-    for brand in brands:
-        brand_data = {
-            'id': brand.id,
-            'name': brand.name,
-            'slug': brand.slug,
-            'models': [
-                {
-                    'id': model.id,
-                    'name': model.name,
-                    'slug': model.slug
-                }
-                for model in brand.models.filter(is_active=True)
-            ]
-        }
-        navigation_data['brands'].append(brand_data)
-    
-    # Build category hierarchy
-    for category in categories:
-        category_data = {
-            'id': category.id,
-            'name': category.name,
-            'slug': category.slug,
-            'subcategories': [
-                {
-                    'id': subcat.id,
-                    'name': subcat.name,
-                    'slug': subcat.slug
-                }
-                for subcat in category.subcategories.filter(is_active=True)
-            ]
-        }
-        navigation_data['categories'].append(category_data)
-    
-    cache.set(cache_key, navigation_data, get_products_cache_timeout())
-    return navigation_data
+    # This is a more aggressive invalidation that clears all product caches
+    # In production, you might want to be more selective
+    cache.delete_pattern(f"{PRODUCT_PREFIX}_*")
+    cache.delete_pattern(f"{BRAND_PREFIX}_*")
+    cache.delete_pattern(f"{MODEL_PREFIX}_*")
+    cache.delete_pattern(f"{CATEGORY_PREFIX}_*")
+    logger.info("Invalidated all product-related cache entries")

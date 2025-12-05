@@ -1,17 +1,39 @@
+"""
+Views for the users app.
+
+This module defines API views for user authentication operations,
+including sending and verifying OTP codes with caching implementation.
+"""
+
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.core.mail import send_mail
-from django.core.cache import cache
 from django.conf import settings
 from .serializers import LoginSerializer, OTPVerificationSerializer
 from .models import User
+from .cache_utils import store_otp, verify_otp, delete_otp, get_user_from_cache, cache_user
 import random
 
 
 class SendOTPView(APIView):
+    """
+    API view for sending OTP codes to users.
+    
+    Handles POST requests to send OTP codes via email or SMS.
+    Uses caching to store OTP codes for verification.
+    """
     def post(self, request):
+        """
+        Handle POST request to send OTP code.
+        
+        Args:
+            request: The HTTP request object containing email_or_phone
+            
+        Returns:
+            Response: JSON response with success/error message
+        """
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             email_or_phone = serializer.validated_data['email_or_phone']
@@ -19,8 +41,8 @@ class SendOTPView(APIView):
             # Generate 6 digit OTP
             otp = str(random.randint(100000, 999999))
             
-            # Store OTP in cache for 10 minutes
-            cache.set(f"otp_{email_or_phone}", otp, 600)  # 600 seconds = 10 minutes
+            # Store OTP in cache using cache utility
+            store_otp(email_or_phone, otp)
             
             # Check if it's email or phone
             if '@' in email_or_phone:
@@ -53,44 +75,62 @@ class SendOTPView(APIView):
 
 
 class VerifyOTPView(APIView):
+    """
+    API view for verifying OTP codes from users.
+    
+    Handles POST requests to verify OTP codes and authenticate users.
+    Implements zero-query pattern using caching for user data.
+    """
     def post(self, request):
+        """
+        Handle POST request to verify OTP code.
+        
+        Args:
+            request: The HTTP request object containing email_or_phone and otp
+            
+        Returns:
+            Response: JSON response with authentication result and user data
+        """
         serializer = OTPVerificationSerializer(data=request.data)
         if serializer.is_valid():
             email_or_phone = serializer.validated_data['email_or_phone']
             otp = serializer.validated_data['otp']
             
-            # Get stored OTP from cache
-            stored_otp = cache.get(f"otp_{email_or_phone}")
-            
-            if not stored_otp:
+            # Verify OTP using cache utility (zero-query pattern)
+            if not verify_otp(email_or_phone, otp):
+                # Check if OTP expired or is invalid
                 return Response({
-                    'error': 'OTP expired or not generated.'
+                    'error': 'OTP expired or invalid.'
                 }, status=status.HTTP_400_BAD_REQUEST)
                 
-            if stored_otp != otp:
-                return Response({
-                    'error': 'Invalid OTP.'
-                }, status=status.HTTP_400_BAD_REQUEST)
-                
-            # OTP is valid, create or get user
+            # OTP is valid, create or get user with caching
             try:
-                if '@' in email_or_phone:
-                    user, created = User.objects.get_or_create(email=email_or_phone)
-                    if created:
-                        user.phone_number = None  # Since user logged in with email
-                        user.save()
-                else:
-                    user, created = User.objects.get_or_create(phone_number=email_or_phone)
-                    if created:
-                        user.email = None  # Since user logged in with phone
-                        user.save()
+                # Try to get user from cache first (zero-query pattern)
+                user = get_user_from_cache(email_or_phone)
+                
+                if not user:
+                    # User not in cache, get from database
+                    if '@' in email_or_phone:
+                        user, created = User.objects.get_or_create(email=email_or_phone)
+                        if created:
+                            user.phone_number = None  # Since user logged in with email
+                            user.save()
+                    else:
+                        user, created = User.objects.get_or_create(phone_number=email_or_phone)
+                        if created:
+                            user.email = None  # Since user logged in with phone
+                            user.save()
+                    
+                    # Cache the user data for future requests
+                    cache_user(user)
+                
             except Exception as e:
                 return Response({
                     'error': 'Failed to create/get user.'
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             # Delete OTP from cache after successful verification
-            cache.delete(f"otp_{email_or_phone}")
+            delete_otp(email_or_phone)
             
             # In a real application, you would generate a token here
             # For simplicity, we're just returning success

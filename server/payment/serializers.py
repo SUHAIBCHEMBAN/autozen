@@ -3,7 +3,12 @@ from .models import PaymentConfiguration, Transaction, Refund, PaymentGateway, T
 
 
 class PaymentConfigurationSerializer(serializers.ModelSerializer):
-    """Serializer for payment configuration"""
+    """
+    Serializer for payment configuration.
+    
+    Serializes payment configuration data for API responses and validates
+    incoming data for payment configuration creation/update.
+    """
     class Meta:
         model = PaymentConfiguration
         fields = [
@@ -14,7 +19,11 @@ class PaymentConfigurationSerializer(serializers.ModelSerializer):
 
 
 class TransactionSerializer(serializers.ModelSerializer):
-    """Serializer for transactions"""
+    """
+    Serializer for transactions.
+    
+    Serializes transaction data for API responses, including related user and order information.
+    """
     user_email = serializers.CharField(source='user.email', read_only=True)
     order_number = serializers.CharField(source='order.order_number', read_only=True)
     
@@ -34,7 +43,12 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 
 class TransactionCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating transactions"""
+    """
+    Serializer for creating transactions.
+    
+    Validates incoming data for transaction creation, ensuring the order belongs
+    to the requesting user and hasn't already been paid.
+    """
     class Meta:
         model = Transaction
         fields = [
@@ -43,6 +57,20 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def validate(self, attrs):
+        """
+        Validate transaction creation data.
+        
+        Ensures the order belongs to the requesting user and hasn't already been paid.
+        
+        Args:
+            attrs (dict): The attributes to validate
+            
+        Returns:
+            dict: The validated attributes
+            
+        Raises:
+            serializers.ValidationError: If validation fails
+        """
         order = attrs.get('order')
         user = self.context['request'].user
         
@@ -58,7 +86,11 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
 
 
 class RefundSerializer(serializers.ModelSerializer):
-    """Serializer for refunds"""
+    """
+    Serializer for refunds.
+    
+    Serializes refund data for API responses, including related transaction information.
+    """
     transaction_id = serializers.CharField(source='transaction.transaction_id', read_only=True)
     
     class Meta:
@@ -77,6 +109,11 @@ class RefundSerializer(serializers.ModelSerializer):
 
 
 class PaymentIntentSerializer(serializers.Serializer):
-    """Serializer for payment intent creation"""
+    """
+    Serializer for payment intent creation.
+    
+    Validates incoming data for payment intent creation, ensuring the order ID
+    and payment gateway are provided and valid.
+    """
     order_id = serializers.IntegerField()
     gateway = serializers.ChoiceField(choices=PaymentGateway.choices)

@@ -1,10 +1,14 @@
 from rest_framework import serializers
 from django.core.cache import cache
 from .models import Brand, VehicleModel, PartCategory, Product
+from .cache_utils import (
+    get_cached_brand, get_cached_model, get_cached_category,
+    get_cached_brands_list, get_cached_models_list, get_cached_categories_list
+)
 
 
 class BrandSerializer(serializers.ModelSerializer):
-    """Serializer for Brand model with Redis caching support"""
+    """Serializer for Brand model"""
     url = serializers.HyperlinkedIdentityField(view_name='products:brand-detail', lookup_field='slug')
     models_count = serializers.SerializerMethodField()
     
@@ -32,13 +36,15 @@ class BrandSerializer(serializers.ModelSerializer):
         if cached_count is not None:
             return cached_count
             
-        count = obj.models.count()
+        # Use cached models list for more efficient counting
+        models_list = get_cached_models_list(brand_id=obj.id)
+        count = len(models_list)
         cache.set(cache_key, count, 60 * 15)  # Cache for 15 minutes
         return count
 
 
 class BrandDetailSerializer(BrandSerializer):
-    """Detailed serializer for Brand with related models and caching support"""
+    """Detailed serializer for Brand with related models"""
     models = serializers.SerializerMethodField()
     
     class Meta(BrandSerializer.Meta):
@@ -60,14 +66,15 @@ class BrandDetailSerializer(BrandSerializer):
         if cached_models is not None:
             return cached_models
             
-        models = obj.models.all()
-        result = VehicleModelSerializer(models, many=True, context=self.context).data
+        # Use cached models list for zero-query implementation
+        models_list = get_cached_models_list(brand_id=obj.id)
+        result = VehicleModelSerializer(models_list, many=True, context=self.context).data
         cache.set(cache_key, result, 60 * 15)  # Cache for 15 minutes
         return result
 
 
 class VehicleModelSerializer(serializers.ModelSerializer):
-    """Serializer for VehicleModel model with Redis caching support"""
+    """Serializer for VehicleModel model"""
     url = serializers.HyperlinkedIdentityField(
         view_name='products:model-detail', 
         lookup_field='slug',
@@ -101,13 +108,15 @@ class VehicleModelSerializer(serializers.ModelSerializer):
         if cached_count is not None:
             return cached_count
             
-        count = obj.products.count()
+        # More efficient approach using direct query
+        from .models import Product
+        count = Product.objects.filter(vehicle_model=obj, is_active=True).count()
         cache.set(cache_key, count, 60 * 15)  # Cache for 15 minutes
         return count
 
 
 class VehicleModelDetailSerializer(VehicleModelSerializer):
-    """Detailed serializer for VehicleModel with related products and caching support"""
+    """Detailed serializer for VehicleModel with related products"""
     products = serializers.SerializerMethodField()
     
     class Meta(VehicleModelSerializer.Meta):
@@ -129,14 +138,19 @@ class VehicleModelDetailSerializer(VehicleModelSerializer):
         if cached_products is not None:
             return cached_products
             
-        products = obj.products.all()
-        result = ProductListSerializer(products, many=True, context=self.context).data
+        # Use direct query for consistency
+        from .models import Product
+        products_queryset = Product.objects.filter(vehicle_model=obj, is_active=True).select_related(
+            'brand', 'vehicle_model', 'part_category'
+        )
+        products_list = list(products_queryset)
+        result = ProductListSerializer(products_list, many=True, context=self.context).data
         cache.set(cache_key, result, 60 * 15)  # Cache for 15 minutes
         return result
 
 
 class PartCategorySerializer(serializers.ModelSerializer):
-    """Serializer for PartCategory model with Redis caching support"""
+    """Serializer for PartCategory model"""
     url = serializers.HyperlinkedIdentityField(view_name='products:category-detail', lookup_field='slug')
     subcategories_count = serializers.SerializerMethodField()
     is_parent_category = serializers.SerializerMethodField()  # Changed from source to method
@@ -167,7 +181,9 @@ class PartCategorySerializer(serializers.ModelSerializer):
         if cached_count is not None:
             return cached_count
             
-        count = obj.subcategories.count()
+        # Use cached categories list for more efficient counting
+        subcategories_list = get_cached_categories_list(parent_id=obj.id)
+        count = len(subcategories_list)
         cache.set(cache_key, count, 60 * 15)  # Cache for 15 minutes
         return count
     
@@ -197,7 +213,7 @@ class PartCategorySerializer(serializers.ModelSerializer):
 
 
 class PartCategoryDetailSerializer(PartCategorySerializer):
-    """Detailed serializer for PartCategory with subcategories, products and caching support"""
+    """Detailed serializer for PartCategory with subcategories and products"""
     subcategories = serializers.SerializerMethodField()
     products = serializers.SerializerMethodField()
     
@@ -220,8 +236,9 @@ class PartCategoryDetailSerializer(PartCategorySerializer):
         if cached_subcategories is not None:
             return cached_subcategories
             
-        subcategories = obj.subcategories.all()
-        result = PartCategorySerializer(subcategories, many=True, context=self.context).data
+        # Use cached categories list for zero-query implementation
+        subcategories_list = get_cached_categories_list(parent_id=obj.id)
+        result = PartCategorySerializer(subcategories_list, many=True, context=self.context).data
         cache.set(cache_key, result, 60 * 15)  # Cache for 15 minutes
         return result
     
@@ -241,21 +258,44 @@ class PartCategoryDetailSerializer(PartCategorySerializer):
         if cached_products is not None:
             return cached_products
             
-        products = obj.products.all()
-        result = ProductListSerializer(products, many=True, context=self.context).data
+        # Use direct query for consistency
+        from .models import Product
+        products_queryset = Product.objects.filter(part_category=obj, is_active=True).select_related(
+            'brand', 'vehicle_model', 'part_category'
+        )
+        products_list = list(products_queryset)
+        result = ProductListSerializer(products_list, many=True, context=self.context).data
         cache.set(cache_key, result, 60 * 15)  # Cache for 15 minutes
         return result
 
 
 class ProductListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for product listings with Redis caching support"""
+    """Lightweight serializer for product listings"""
     url = serializers.HyperlinkedIdentityField(view_name='products:product-detail', lookup_field='slug')
-    brand_name = serializers.CharField(source='brand.name', read_only=True)
-    model_name = serializers.CharField(source='vehicle_model.name', read_only=True)
-    category_name = serializers.CharField(source='part_category.name', read_only=True)
+    brand_name = serializers.SerializerMethodField()
+    model_name = serializers.SerializerMethodField()
+    category_name = serializers.SerializerMethodField()
     amount_saved = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     discount_percentage = serializers.IntegerField(read_only=True)
     is_in_stock = serializers.BooleanField(read_only=True)
+    
+    def get_brand_name(self, obj):
+        """Get brand name from cached or loaded brand object"""
+        if hasattr(obj, 'brand') and obj.brand:
+            return obj.brand.name
+        return ''
+    
+    def get_model_name(self, obj):
+        """Get model name from cached or loaded vehicle_model object"""
+        if hasattr(obj, 'vehicle_model') and obj.vehicle_model:
+            return obj.vehicle_model.name
+        return ''
+    
+    def get_category_name(self, obj):
+        """Get category name from cached or loaded part_category object"""
+        if hasattr(obj, 'part_category') and obj.part_category:
+            return obj.part_category.name
+        return ''
     
     class Meta:
         model = Product
@@ -272,10 +312,9 @@ class ProductListSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         """
-        Override to_representation to use cached PartCategory instances.
+        Override to_representation to use cached Brand, VehicleModel, and PartCategory instances.
         
-        This reduces database queries by using cached PartCategory instances
-        when available.
+        This reduces database queries by using cached instances when available.
         
         Args:
             instance (Product): The product instance
@@ -283,6 +322,20 @@ class ProductListSerializer(serializers.ModelSerializer):
         Returns:
             dict: The serialized representation
         """
+        # Use cached Brand instances to reduce database queries
+        if hasattr(instance, 'brand_id') and instance.brand_id:
+            cached_brand = Brand.get_cached_by_id(instance.brand_id)
+            if cached_brand:
+                # Temporarily replace the brand with the cached version
+                instance.brand = cached_brand
+        
+        # Use cached VehicleModel instances to reduce database queries
+        if hasattr(instance, 'vehicle_model_id') and instance.vehicle_model_id:
+            cached_model = VehicleModel.get_cached_by_id(instance.vehicle_model_id)
+            if cached_model:
+                # Temporarily replace the vehicle_model with the cached version
+                instance.vehicle_model = cached_model
+        
         # Use cached PartCategory instances to reduce database queries
         if hasattr(instance, 'part_category_id') and instance.part_category_id:
             cached_category = PartCategory.get_cached_by_id(instance.part_category_id)
@@ -294,7 +347,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
-    """Detailed serializer for product details with Redis caching support"""
+    """Detailed serializer for product details"""
     brand = BrandSerializer(read_only=True)
     vehicle_model = VehicleModelSerializer(read_only=True)
     part_category = PartCategorySerializer(read_only=True)

@@ -6,6 +6,17 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from .models import Wishlist, WishlistItem
 from .serializers import WishlistSerializer, WishlistItemSerializer, WishlistCreateSerializer
+from .cache_utils import (
+    get_cached_wishlist,
+    get_cached_wishlist_items,
+    get_cached_wishlist_count,
+    get_cached_wishlist_response,
+    cache_wishlist_response,
+    add_to_wishlist_with_cache,
+    remove_from_wishlist_with_cache,
+    clear_wishlist_with_cache,
+    is_product_in_wishlist_cached
+)
 from products.models import Product
 
 
@@ -29,32 +40,52 @@ class WishlistViewSet(viewsets.ModelViewSet):
     serializer_class = WishlistSerializer
     permission_classes = [IsOwner]
     
+    def get_serializer_context(self):
+        """Return the context for the serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
     def get_queryset(self):
         """Return the wishlist for the current user"""
         if not self.request.user.is_authenticated:
             return Wishlist.objects.none()
-        return Wishlist.objects.filter(user=self.request.user).prefetch_related('items__product')
+        return Wishlist.objects.filter(user=self.request.user).prefetch_related('items__product', 'items__product__brand', 'items__product__vehicle_model', 'items__product__part_category')
     
     def get_object(self):
-        """Get or create the wishlist for the current user"""
+        """Get or create the wishlist for the current user with caching"""
         if not self.request.user.is_authenticated:
             raise PermissionDenied("Authentication required")
         
-        wishlist, created = Wishlist.objects.get_or_create(user=self.request.user)
+        # Try to get from cache first
+        wishlist = get_cached_wishlist(self.request.user.id)
+        if wishlist is None:
+            # Not in cache, get from database
+            wishlist, created = Wishlist.objects.get_or_create(user=self.request.user)
         return wishlist
     
     def list(self, request, *args, **kwargs):
-        """Get the user's wishlist"""
+        """Get the user's wishlist with caching"""
         try:
+            # Try to get cached response first
+            cached_response = get_cached_wishlist_response(request.user.id)
+            if cached_response:
+                return Response(cached_response)
+            
             wishlist = self.get_object()
-            serializer = self.get_serializer(wishlist)
-            return Response(serializer.data)
+            serializer = self.get_serializer(wishlist, context=self.get_serializer_context())
+            response_data = serializer.data
+            
+            # Cache the response
+            cache_wishlist_response(request.user.id, response_data)
+            
+            return Response(response_data)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['post'])
     def add_item(self, request):
-        """Add an item to the wishlist"""
+        """Add an item to the wishlist with caching"""
         if not request.user.is_authenticated:
             return Response(
                 {'error': 'Authentication required'}, 
@@ -65,35 +96,26 @@ class WishlistViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             product = serializer.validated_data['product_id']
             
-            # Get or create wishlist
-            wishlist, created = Wishlist.objects.get_or_create(user=request.user)
+            # Use cached function to add item
+            result = add_to_wishlist_with_cache(request.user, product.id)
             
-            # Check if item already exists
-            if WishlistItem.objects.filter(wishlist=wishlist, product=product).exists():
+            if result['success']:
+                status_code = status.HTTP_201_CREATED if result['created'] else status.HTTP_200_OK
                 return Response(
-                    {'message': 'Product already in wishlist'}, 
-                    status=status.HTTP_200_OK
+                    {'message': result['message']}, 
+                    status=status_code
                 )
-            
-            # Add item to wishlist
-            wishlist_item = WishlistItem.objects.create(
-                wishlist=wishlist,
-                product=product
-            )
-            
-            # Update wishlist timestamp
-            wishlist.save()
-            
-            return Response(
-                {'message': 'Product added to wishlist'}, 
-                status=status.HTTP_201_CREATED
-            )
+            else:
+                return Response(
+                    {'error': result['message']}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['post'])
     def remove_item(self, request):
-        """Remove an item from the wishlist"""
+        """Remove an item from the wishlist with caching"""
         if not request.user.is_authenticated:
             return Response(
                 {'error': 'Authentication required'}, 
@@ -104,71 +126,64 @@ class WishlistViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             product = serializer.validated_data['product_id']
             
-            # Get wishlist
-            try:
-                wishlist = Wishlist.objects.get(user=request.user)
-            except Wishlist.DoesNotExist:
-                return Response(
-                    {'error': 'Wishlist not found'}, 
-                    status=status.HTTP_404_NOT_FOUND
-                )
+            # Use cached function to remove item
+            result = remove_from_wishlist_with_cache(request.user, product.id)
             
-            # Remove item from wishlist
-            try:
-                wishlist_item = WishlistItem.objects.get(
-                    wishlist=wishlist, 
-                    product=product
-                )
-                wishlist_item.delete()
-                
-                # Update wishlist timestamp
-                wishlist.save()
-                
+            if result['success']:
                 return Response(
-                    {'message': 'Product removed from wishlist'}, 
+                    {'message': result['message']}, 
                     status=status.HTTP_200_OK
                 )
-            except WishlistItem.DoesNotExist:
+            else:
+                status_code = status.HTTP_404_NOT_FOUND if 'not found' in result['message'].lower() else status.HTTP_400_BAD_REQUEST
                 return Response(
-                    {'error': 'Product not in wishlist'}, 
-                    status=status.HTTP_404_NOT_FOUND
+                    {'error': result['message']}, 
+                    status=status_code
                 )
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['delete'])
     def clear(self, request):
-        """Clear all items from the wishlist"""
+        """Clear all items from the wishlist with caching"""
         if not request.user.is_authenticated:
             return Response(
                 {'error': 'Authentication required'}, 
                 status=status.HTTP_401_UNAUTHORIZED
             )
         
-        try:
-            wishlist = Wishlist.objects.get(user=request.user)
-            wishlist.items.all().delete()
-            wishlist.save()
+        # Use cached function to clear wishlist
+        result = clear_wishlist_with_cache(request.user)
+        
+        if result['success']:
             return Response(
-                {'message': 'Wishlist cleared'}, 
+                {'message': result['message']}, 
                 status=status.HTTP_200_OK
             )
-        except Wishlist.DoesNotExist:
+        else:
+            status_code = status.HTTP_404_NOT_FOUND if 'not found' in result['message'].lower() else status.HTTP_400_BAD_REQUEST
             return Response(
-                {'error': 'Wishlist not found'}, 
-                status=status.HTTP_404_NOT_FOUND
+                {'error': result['message']}, 
+                status=status_code
             )
     
     @action(detail=False, methods=['get'])
     def items(self, request):
-        """Get all items in the wishlist"""
+        """Get all items in the wishlist with caching"""
         if not request.user.is_authenticated:
             return Response([], status=status.HTTP_200_OK)
         
-        try:
-            wishlist = Wishlist.objects.get(user=request.user)
-            items = wishlist.items.all().select_related('product')
-            serializer = WishlistItemSerializer(items, many=True)
+        # Try to get items from cache
+        items = get_cached_wishlist_items(request.user.id)
+        if items:
+            serializer = WishlistItemSerializer(items, many=True, context=self.get_serializer_context())
             return Response(serializer.data)
-        except Wishlist.DoesNotExist:
-            return Response([], status=status.HTTP_200_OK)
+        else:
+            # Fallback to database if not in cache
+            try:
+                wishlist = Wishlist.objects.get(user=request.user)
+                items = wishlist.items.all().select_related('product', 'product__brand', 'product__vehicle_model', 'product__part_category')
+                serializer = WishlistItemSerializer(items, many=True, context=self.get_serializer_context())
+                return Response(serializer.data)
+            except Wishlist.DoesNotExist:
+                return Response([], status=status.HTTP_200_OK)
