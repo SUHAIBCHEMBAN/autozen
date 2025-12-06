@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import Navbar from './common/components/Navbar'
 import Footer from './common/components/Footer'
 import './App.css'
@@ -9,6 +9,10 @@ import {
   TermsConditionsPage,
   FaqsPage,
 } from './apps/pages/pages'
+import { Login, VerifyOTP, Profile } from './apps/users/pages'
+import { ProductListing, ProductDetail } from './apps/products/pages'
+import { Cart } from './apps/cart/pages'
+import { Wishlist } from './apps/wishlist/pages'
 
 function HomePage() {
   return (
@@ -22,8 +26,8 @@ function HomePage() {
             returns, and tracked delivery.
           </p>
           <div className="hero-actions">
-            <button className="btn primary">Shop now</button>
-            <button className="btn ghost">Explore categories</button>
+            <Link to="/products" className="btn primary">Shop now</Link>
+            <Link to="/products" className="btn ghost">Explore categories</Link>
           </div>
         </div>
         <div className="hero-card">
@@ -92,6 +96,13 @@ function App() {
             </PageShell>
           }
         />
+        <Route path="/login" element={<Login />} />
+        <Route path="/verify-otp" element={<VerifyOTP />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/products" element={<ProductListing />} />
+        <Route path="/products/:slug" element={<ProductDetail />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/wishlist" element={<Wishlist />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

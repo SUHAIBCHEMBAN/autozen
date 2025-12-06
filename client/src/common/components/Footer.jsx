@@ -6,8 +6,8 @@ const footerColumns = [
     items: [
       { label: 'Home', href: '/' },
       { label: 'About', href: '/about' },
-      { label: 'Contact', href: '#' },
-      { label: 'Login', href: '#' },
+      { label: 'Shop', href: '/products' },
+      { label: 'Login', href: '/login' },
     ],
   },
   {
@@ -22,10 +22,10 @@ const footerColumns = [
   {
     title: 'Market Place',
     items: [
-      { label: 'Shop', href: '#' },
-      { label: 'Cart', href: '#' },
-      { label: 'Order Tracking', href: '#' },
-      { label: 'My Account', href: '#' },
+      { label: 'Cart', href: '/cart' },
+      { label: 'Wishlist', href: '/wishlist' },
+      { label: 'Order Tracking', href: '/order-tracking' },
+      { label: 'My Account', href: '/profile' },
     ],
   },
 ]

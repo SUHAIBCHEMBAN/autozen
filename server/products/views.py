@@ -1,20 +1,21 @@
-from rest_framework import viewsets, filters, status
-from rest_framework.decorators import action
+from django.shortcuts import render
+from rest_framework import viewsets, status, filters
 from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny  # Add this import
 from django_filters.rest_framework import DjangoFilterBackend
-from django.shortcuts import get_object_or_404
-from django.db.models import Q
 from .models import Brand, VehicleModel, PartCategory, Product
-from .cache_utils import (
-    get_cached_brands_list, get_cached_models_list, get_cached_categories_list,
-    get_cached_brand_by_slug, get_cached_model_by_slug, get_cached_category_by_slug,
-    get_cached_product_by_slug
-)
 from .serializers import (
     BrandSerializer, BrandDetailSerializer,
     VehicleModelSerializer, VehicleModelDetailSerializer,
     PartCategorySerializer, PartCategoryDetailSerializer,
     ProductListSerializer, ProductDetailSerializer, ProductCreateSerializer
+)
+from .cache_utils import (
+    get_cached_brands_list, get_cached_brand_by_slug,
+    get_cached_models_list, get_cached_model_by_slug,
+    get_cached_categories_list, get_cached_category_by_slug,
+    get_cached_product_by_slug
 )
 
 
@@ -29,7 +30,10 @@ class BrandViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
-
+    
+    # Override permission classes to allow public access
+    permission_classes = [AllowAny]
+    
     def get_queryset(self):
         """Return queryset of active brands with caching optimization"""
         # For list views, we can use cached data
@@ -78,7 +82,10 @@ class VehicleModelViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'description', 'brand__name']
     ordering_fields = ['name', 'brand', 'year_from', 'created_at']
     ordering = ['brand', 'name']
-
+    
+    # Override permission classes to allow public access
+    permission_classes = [AllowAny]
+    
     def get_queryset(self):
         """Return queryset of active vehicle models with caching optimization"""
         # For list views, we can use cached data
@@ -111,7 +118,7 @@ class VehicleModelViewSet(viewsets.ModelViewSet):
         """Get all products for a specific vehicle model"""
         model = self.get_object()
         # Filter products queryset by vehicle model
-        products = [p for p in self.queryset if hasattr(p, 'vehicle_model_id') and p.vehicle_model_id == model.id]
+        products = [p for p in ProductViewSet().get_queryset() if hasattr(p, 'vehicle_model_id') and p.vehicle_model_id == model.id]
         serializer = ProductListSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -128,7 +135,10 @@ class PartCategoryViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
-
+    
+    # Override permission classes to allow public access
+    permission_classes = [AllowAny]
+    
     def get_queryset(self):
         """Return queryset of active part categories with caching optimization"""
         # For list views, we can use cached data
@@ -199,7 +209,10 @@ class ProductViewSet(viewsets.ModelViewSet):
         'stock_quantity', 'is_featured'
     ]
     ordering = ['-created_at']
-
+    
+    # Override permission classes to allow public access
+    permission_classes = [AllowAny]
+    
     def get_queryset(self):
         """Return queryset of active products with select_related optimization"""
         return Product.objects.filter(is_active=True).select_related(

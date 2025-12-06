@@ -16,19 +16,19 @@ class CustomUserAdmin(UserAdmin):
     Configures the admin panel display, filtering, and editing options for users.
     """
     model = User
-    list_display = ('id','email', 'phone_number', 'is_staff', 'is_active',)
+    list_display = ('id', 'username', 'email', 'phone_number', 'is_staff', 'is_active',)
     list_filter = ('is_staff', 'is_active',)
     fieldsets = (
-        (None, {'fields': ('email', 'phone_number', 'password')}),
+        (None, {'fields': ('username', 'email', 'phone_number', 'profile', 'password')}),
         ('Permissions', {'fields': ('is_staff', 'is_active', 'is_superuser', 'groups', 'user_permissions')}),
     )
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'phone_number', 'password1', 'password2', 'is_staff', 'is_active')}
+            'fields': ('username', 'email', 'phone_number', 'profile', 'password1', 'password2', 'is_staff', 'is_active')}
         ),
     )
-    search_fields = ('email', 'phone_number',)
+    search_fields = ('username', 'email', 'phone_number',)
     ordering = ('email',)
 
 

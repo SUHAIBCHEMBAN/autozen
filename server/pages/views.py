@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny  # Add this import
 from .models import Page, FAQ
 from .serializers import PageSerializer, FAQSerializer
 from .utils import get_active_pages, get_page_by_slug, get_page_by_type, get_active_faqs
@@ -16,6 +17,9 @@ class PageViewSet(viewsets.ViewSet):
     - Individual pages are cached by slug
     - Pages by type are cached separately
     """
+    
+    # Override permission classes to allow public access
+    permission_classes = [AllowAny]
     
     def list(self, request):
         """
@@ -80,6 +84,9 @@ class FAQViewSet(viewsets.ViewSet):
     Implements caching for improved performance:
     - FAQs list is cached
     """
+    
+    # Override permission classes to allow public access
+    permission_classes = [AllowAny]
     
     def list(self, request):
         """

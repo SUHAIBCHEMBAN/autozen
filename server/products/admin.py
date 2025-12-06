@@ -59,36 +59,30 @@ class PartCategoryAdmin(admin.ModelAdmin):
 class ProductAdmin(admin.ModelAdmin):
     list_display = ['id','name', 'brand', 'vehicle_model', 'part_category', 'price', 'stock_status', 'is_active', 'is_featured', 'created_at']
     list_filter = ['brand', 'vehicle_model', 'part_category', 'is_active', 'is_featured', 'created_at', 'updated_at']
-    search_fields = ['name', 'sku', 'oem_number', 'manufacturer_part_number']
+    search_fields = ['name', 'sku']  # Removed non-existent fields
     prepopulated_fields = {'slug': ('name',)}
     readonly_fields = ['created_at', 'updated_at', 'amount_saved', 'discount_percentage']
     ordering = ['-created_at']
     
-    # Organize fields into sections
+    # Organize fields into sections - only using fields that exist in the model
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'slug', 'description', 'short_description')
+            'fields': ('name', 'slug', 'short_description', 'description')
+        }),
+        ('Product Identifiers', {
+            'fields': ('sku',)
         }),
         ('Categorization', {
             'fields': ('brand', 'vehicle_model', 'part_category')
         }),
         ('Pricing', {
-            'fields': ('price', 'compare_price', 'cost_per_item')
+            'fields': ('price', 'compare_price')
         }),
         ('Inventory', {
-            'fields': ('sku', 'stock_quantity', 'track_inventory', 'continue_selling')
+            'fields': ('stock_quantity', 'is_active', 'is_featured')
         }),
         ('Media', {
-            'fields': ('featured_image', 'gallery_images')
-        }),
-        ('SEO', {
-            'fields': ('seo_title', 'seo_description', 'meta_keywords')
-        }),
-        ('Automotive Specific', {
-            'fields': ('oem_number', 'manufacturer_part_number', 'compatibility_notes', 'weight', 'dimensions')
-        }),
-        ('Status', {
-            'fields': ('is_active', 'is_featured')
+            'fields': ('featured_image',)
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),

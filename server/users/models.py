@@ -21,13 +21,14 @@ class CustomUserManager(BaseUserManager):
     Provides methods for creating regular users and superusers with email/phone authentication.
     """
     
-    def create_user(self, email=None, phone_number=None, password=None, **extra_fields):
+    def create_user(self, email=None, phone_number=None, username=None, password=None, **extra_fields):
         """
         Create and return a regular user with an email or phone number.
         
         Args:
             email (str, optional): User's email address
             phone_number (str, optional): User's phone number
+            username (str, optional): User's username
             password (str): User's password
             **extra_fields: Additional fields for the user model
             
@@ -41,18 +42,19 @@ class CustomUserManager(BaseUserManager):
             raise ValueError('The Email or Phone Number must be set')
         
         email = self.normalize_email(email) if email else None
-        user = self.model(email=email, phone_number=phone_number, **extra_fields)
+        user = self.model(email=email, phone_number=phone_number, username=username, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email=None, phone_number=None, password=None, **extra_fields):
+    def create_superuser(self, email=None, phone_number=None, username=None, password=None, **extra_fields):
         """
         Create and return a superuser with an email or phone number.
         
         Args:
             email (str, optional): Superuser's email address
             phone_number (str, optional): Superuser's phone number
+            username (str, optional): Superuser's username
             password (str): Superuser's password
             **extra_fields: Additional fields for the superuser model
             
@@ -71,7 +73,7 @@ class CustomUserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
 
-        return self.create_user(email, phone_number, password, **extra_fields)
+        return self.create_user(email, phone_number, username, password, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -81,6 +83,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     Attributes:
         email (EmailField): Unique email address (optional)
         phone_number (CharField): Unique phone number (optional)
+        username (CharField): Username for the user (optional)
+        profile (TextField): Profile information for the user (optional)
         is_active (BooleanField): Whether the user account is active
         is_staff (BooleanField): Whether the user can access the admin site
         date_joined (DateTimeField): When the user account was created
@@ -93,6 +97,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         blank=True,
         validators=[RegexValidator(regex=r'^\+?1?\d{9,15}$')]
     )
+    username = models.CharField(max_length=150, unique=True, null=True, blank=True)
+    profile = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
@@ -107,12 +113,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         Return a string representation of the user.
         
         Returns:
-            str: User's email, phone number, or ID
+            str: User's email, phone number, username, or ID
         """
         if self.email:
             return self.email
         elif self.phone_number:
             return self.phone_number
+        elif self.username:
+            return self.username
         return f"User {self.id}"
 
     class Meta:
@@ -136,3 +144,5 @@ def invalidate_user_cache(sender, instance, **kwargs):
         cache.delete(f"user_{instance.email}")
     if instance.phone_number:
         cache.delete(f"user_{instance.phone_number}")
+    if instance.username:
+        cache.delete(f"user_{instance.username}")

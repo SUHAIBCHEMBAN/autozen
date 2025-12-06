@@ -9,13 +9,18 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.authtoken.models import Token
 from django.core.mail import send_mail
 from django.conf import settings
-from .serializers import LoginSerializer, OTPVerificationSerializer
+from .serializers import LoginSerializer, OTPVerificationSerializer, UserSerializer
 from .models import User
 from .cache_utils import store_otp, verify_otp, delete_otp, get_user_from_cache, cache_user
 import random
+import logging
 
+# Set up logging
+logger = logging.getLogger(__name__)
 
 class SendOTPView(APIView):
     """
@@ -24,6 +29,8 @@ class SendOTPView(APIView):
     Handles POST requests to send OTP codes via email or SMS.
     Uses caching to store OTP codes for verification.
     """
+    permission_classes = [AllowAny]  # Allow unauthenticated access
+    
     def post(self, request):
         """
         Handle POST request to send OTP code.
@@ -43,6 +50,14 @@ class SendOTPView(APIView):
             
             # Store OTP in cache using cache utility
             store_otp(email_or_phone, otp)
+            
+            # Print OTP to terminal for development
+            if settings.DEBUG:
+                print(f"\n{'='*50}")
+                print(f"DEVELOPMENT MODE - OTP for {email_or_phone}: {otp}")
+                print(f"{'='*50}\n")
+                # Also log it
+                logger.info(f"DEVELOPMENT MODE - OTP for {email_or_phone}: {otp}")
             
             # Check if it's email or phone
             if '@' in email_or_phone:
@@ -81,6 +96,8 @@ class VerifyOTPView(APIView):
     Handles POST requests to verify OTP codes and authenticate users.
     Implements zero-query pattern using caching for user data.
     """
+    permission_classes = [AllowAny]  # Allow unauthenticated access
+    
     def post(self, request):
         """
         Handle POST request to verify OTP code.
@@ -132,13 +149,58 @@ class VerifyOTPView(APIView):
             # Delete OTP from cache after successful verification
             delete_otp(email_or_phone)
             
+            # Create or get auth token for the user
+            token, created = Token.objects.get_or_create(user=user)
+            
             # In a real application, you would generate a token here
             # For simplicity, we're just returning success
             return Response({
                 'message': 'Login successful.',
+                'token': token.key,
                 'user_id': user.id,
                 'email': user.email,
-                'phone_number': user.phone_number
+                'phone_number': user.phone_number,
+                'username': user.username,
+                'profile': user.profile
             }, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserProfileView(APIView):
+    """
+    API view for managing user profile.
+    
+    Handles GET requests to retrieve user profile and PUT requests to update it.
+    Requires authentication.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """
+        Handle GET request to retrieve user profile.
+        
+        Args:
+            request: The HTTP request object
+            
+        Returns:
+            Response: JSON response with user profile data
+        """
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def put(self, request):
+        """
+        Handle PUT request to update user profile.
+        
+        Args:
+            request: The HTTP request object containing profile data
+            
+        Returns:
+            Response: JSON response with updated user profile data
+        """
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -1,3 +1,7 @@
+import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { UserIcon, PackageIcon, HeartIcon } from './Icons'
+
 const navLinks = [
   'Select Vehicle',
   'Interior Accessories',
@@ -8,63 +12,39 @@ const navLinks = [
   'Care & Styling',
 ]
 
-function IconCart() {
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      viewBox="0 0 24 24"
-      className="icon"
-    >
-      <path
-        d="M4 5h2l1.5 10h9l1.5-7h-12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="10" cy="18.5" r="1.1" fill="currentColor" />
-      <circle cx="16" cy="18.5" r="1.1" fill="currentColor" />
-    </svg>
-  )
-}
-
-function IconUser() {
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      viewBox="0 0 24 24"
-      className="icon"
-    >
-      <circle
-        cx="12"
-        cy="8.2"
-        r="3.2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-      <path
-        d="M6.5 18.8c.8-2.1 2.9-3.5 5.5-3.5s4.7 1.4 5.5 3.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
-
 function Navbar() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    // Check if user is logged in
+    const user = sessionStorage.getItem('user')
+    setIsLoggedIn(!!user)
+
+    // Listen for storage changes (when user logs in/out in another tab)
+    const handleStorageChange = () => {
+      const user = sessionStorage.getItem('user')
+      setIsLoggedIn(!!user)
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    // Also check on focus (for same-tab updates)
+    window.addEventListener('focus', handleStorageChange)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('focus', handleStorageChange)
+    }
+  }, [])
+
   return (
     <header className="navbar">
       <div className="navbar__inner">
-        <div className="navbar__brand">
-          <span className="brand-primary">Auto</span>
-          <span className="brand-accent">Zen</span>
-        </div>
+        <Link to="/">
+          <div className="navbar__brand">
+            <span className="brand-primary">Auto</span>
+            <span className="brand-accent">Zen</span>
+          </div>
+        </Link>
 
         <div className="navbar__search">
           <input
@@ -75,12 +55,19 @@ function Navbar() {
         </div>
 
         <div className="navbar__actions">
-          <button className="icon-button" aria-label="Cart">
-            <IconCart />
-          </button>
-          <button className="icon-button" aria-label="Account">
-            <IconUser />
-          </button>
+          <Link to="/wishlist" className="icon-button" aria-label="Wishlist">
+            <HeartIcon />
+          </Link>
+          <Link to="/cart" className="icon-button" aria-label="Cart">
+            <PackageIcon />
+          </Link>
+          <Link
+            to={isLoggedIn ? '/profile' : '/login'}
+            className="icon-button"
+            aria-label="Account"
+          >
+            <UserIcon />
+          </Link>
         </div>
       </div>
 

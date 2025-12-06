@@ -13,6 +13,18 @@ import re
 User = get_user_model()
 
 
+class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the User model.
+    
+    Used for creating and updating user profiles.
+    """
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'phone_number', 'profile')
+        read_only_fields = ('id',)
+
+
 class LoginSerializer(serializers.Serializer):
     """
     Serializer for user login requests.

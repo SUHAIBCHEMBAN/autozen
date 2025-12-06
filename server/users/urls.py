@@ -7,7 +7,7 @@ including OTP sending and verification.
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import SendOTPView, VerifyOTPView
+from .views import SendOTPView, VerifyOTPView, UserProfileView
 
 app_name = 'users'
 
@@ -17,4 +17,5 @@ app_name = 'users'
 urlpatterns = [
     path('send-otp/', SendOTPView.as_view(), name='send-otp'),
     path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
+    path('profile/', UserProfileView.as_view(), name='user-profile'),
 ]

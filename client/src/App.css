@@ -215,6 +215,7 @@
   justify-content: center;
   cursor: pointer;
   transition: border-color 120ms ease, transform 120ms ease;
+  text-decoration: none;
 }
 
 .icon-button:hover {
