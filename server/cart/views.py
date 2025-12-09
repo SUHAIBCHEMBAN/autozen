@@ -456,7 +456,7 @@ class CartViewSet(viewsets.ModelViewSet):
             ).get(user=request.user)
             
             items = cart.items_with_products.all()
-            serializer = CartItemSerializer(items, many=True)
+            serializer = CartItemSerializer(items, many=True, context=self.get_serializer_context())
             
             # Cache the serialized data for 15 minutes
             cache.set(cache_key, serializer.data, 60 * 15)

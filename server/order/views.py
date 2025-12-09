@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status, permissions
+from decimal import Decimal, ROUND_HALF_UP
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
@@ -11,6 +12,7 @@ from .serializers import (
     OrderUpdateSerializer, CheckoutSerializer
 )
 from products.models import Product
+from cart.models import Cart, CartItem
 from .utils import (
     get_order_cache_key, get_user_orders_cache_key, 
     get_order_items_cache_key, send_order_confirmation_email
@@ -50,6 +52,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     """
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
+    lookup_field = 'order_number'
     permission_classes = [IsOwnerOrStaff]
     filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
     filterset_fields = ['status', 'payment_method', 'payment_status']
@@ -142,8 +145,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             Response: Serialized order data with HTTP 200 status
         """
         # Try to get from cache first
-        order_id = kwargs.get('pk')
-        cache_key = get_order_cache_key(order_id)
+        lookup_value = kwargs.get(self.lookup_field)
+        cache_key = f"order_{lookup_value}"
         cached_data = cache.get(cache_key)
         
         if cached_data is not None:
@@ -224,6 +227,419 @@ class OrderViewSet(viewsets.ModelViewSet):
         
         return Response(serializer.data)
     
+    @action(detail=True, methods=['get'], permission_classes=[], authentication_classes=[])
+    def invoice(self, request, pk=None, **kwargs):
+        """Generate invoice view (HTML)"""
+        from django.http import HttpResponse
+        from django.shortcuts import get_object_or_404
+        
+        # Get the order number from the URL kwargs
+        order_number = self.kwargs.get('order_number') or pk
+        
+        # Get the order object using the order number
+        order = get_object_or_404(Order, order_number=order_number)
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Invoice - {order.order_number}</title>
+            <meta charset="utf-8">
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+                
+                :root {{
+                    --primary: #ef4444; /* AutoZen Red */
+                    --secondary: #0f172a; /* Dark Slate */
+                    --text: #334155;
+                    --light: #f8fafc;
+                    --border: #e2e8f0;
+                }}
+                
+                body {{ 
+                    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+                    color: var(--text);
+                    line-height: 1.5;
+                    margin: 0;
+                    padding: 0;
+                    background: #fff;
+                    font-size: 14px;
+                }}
+                
+                .invoice-container {{
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 40px;
+                    background: white;
+                }}
+                
+                /* Header */
+                .header {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    margin-bottom: 40px;
+                    padding-bottom: 20px;
+                    border-bottom: 2px solid var(--primary);
+                }}
+                
+                .brand-section h1 {{
+                    color: var(--primary);
+                    margin: 0;
+                    font-size: 32px;
+                    font-weight: 800;
+                    letter-spacing: -1px;
+                }}
+                
+                .brand-section p {{
+                    margin: 4px 0 0;
+                    color: #64748b;
+                    font-size: 13px;
+                }}
+                
+                .invoice-info {{
+                    text-align: right;
+                }}
+                
+                .invoice-label {{
+                    font-size: 12px;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    color: #64748b;
+                    font-weight: 600;
+                }}
+                
+                .invoice-number {{
+                    font-size: 18px;
+                    font-weight: 700;
+                    color: var(--secondary);
+                    margin: 4px 0 12px;
+                }}
+                
+                .status-badge {{
+                    display: inline-block;
+                    padding: 4px 12px;
+                    background: var(--light);
+                    border-radius: 20px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: var(--secondary);
+                    border: 1px solid var(--border);
+                    text-transform: uppercase;
+                }}
+                
+                /* Address Grid */
+                .address-section {{
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 40px;
+                    margin-bottom: 40px;
+                }}
+                
+                .address-box h3 {{
+                    font-size: 11px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    color: #64748b;
+                    margin: 0 0 12px;
+                    border-bottom: 1px solid var(--border);
+                    padding-bottom: 8px;
+                }}
+                
+                .recipient-name {{
+                    font-weight: 700;
+                    font-size: 15px;
+                    color: var(--secondary);
+                    margin-bottom: 4px;
+                }}
+                
+                .address-lines {{
+                    color: var(--text);
+                }}
+                
+                /* Dates Grid */
+                .dates-grid {{
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 20px;
+                    margin-bottom: 40px;
+                    background: var(--light);
+                    padding: 20px;
+                    border-radius: 8px;
+                }}
+                
+                .date-box label {{
+                    display: block;
+                    font-size: 11px;
+                    color: #64748b;
+                    margin-bottom: 4px;
+                    text-transform: uppercase;
+                    font-weight: 600;
+                }}
+                
+                .date-box div {{
+                    font-weight: 600;
+                    color: var(--secondary);
+                }}
+                
+                /* Table */
+                table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 40px;
+                }}
+                
+                th {{
+                    text-align: left;
+                    padding: 16px;
+                    background: var(--secondary);
+                    color: white;
+                    font-weight: 600;
+                    font-size: 12px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }}
+                
+                th:first-child {{ border-top-left-radius: 6px; }}
+                th:last-child {{ border-top-right-radius: 6px; }}
+                
+                td {{
+                    padding: 16px;
+                    border-bottom: 1px solid var(--border);
+                    vertical-align: top;
+                }}
+                
+                tr:last-child td {{
+                    border-bottom: none;
+                }}
+                
+                .item-name {{
+                    font-weight: 600;
+                    color: var(--secondary);
+                    display: block;
+                    margin-bottom: 2px;
+                }}
+                
+                .item-sku {{
+                    font-size: 11px;
+                    color: #94a3b8;
+                    font-family: monospace;
+                }}
+                
+                .text-right {{ text-align: right; }}
+                .text-center {{ text-align: center; }}
+                
+                /* Summary */
+                .summary-section {{
+                    display: flex;
+                    justify-content: flex-end;
+                }}
+                
+                .summary-table {{
+                    width: 300px;
+                }}
+                
+                .summary-row {{
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 8px 0;
+                    color: #64748b;
+                }}
+                
+                .summary-row.total {{
+                    border-top: 2px solid var(--secondary);
+                    margin-top: 12px;
+                    padding-top: 12px;
+                    font-weight: 700;
+                    color: var(--secondary);
+                    font-size: 18px;
+                }}
+                
+                /* Footer */
+                .footer {{
+                    margin-top: 60px;
+                    padding-top: 30px;
+                    border-top: 1px solid var(--border);
+                    text-align: center;
+                    color: #94a3b8;
+                    font-size: 12px;
+                }}
+                
+                /* Print Button */
+                .print-button {{
+                    display: block;
+                    margin: 20px auto;
+                    padding: 10px 20px;
+                    background-color: var(--primary);
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    font-size: 16px;
+                    cursor: pointer;
+                }}
+                
+                .print-button:hover {{
+                    background-color: #dc2626;
+                }}
+                
+                @media print {{
+                    body {{ background: white; -webkit-print-color-adjust: exact; }}
+                    .invoice-container {{ width: 100%; max-width: none; padding: 0; }}
+                    .print-button {{ display: none; }}
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="invoice-container">
+                <button class="print-button" onclick="window.print()">Print Invoice</button>
+                
+                <div class="header">
+                    <div class="brand-section">
+                        <h1>AutoZen .</h1>
+                        <p>Premium Automotive Parts</p>
+                    </div>
+                    <div class="invoice-info">
+                        <div class="invoice-label">Invoice Number</div>
+                        <div class="invoice-number">{order.order_number}</div>
+                        <span class="status-badge">{order.status.replace('_', ' ')}</span>
+                    </div>
+                </div>
+                
+                <div class="address-section">
+                    <div class="address-box">
+                        <h3>Billed To</h3>
+                        <div class="recipient-name">{order.first_name} {order.last_name}</div>
+                        <div class="address-lines">
+                            {order.billing_address_line1}<br>
+                            {f"{order.billing_address_line2}<br>" if order.billing_address_line2 else ""}
+                            {order.billing_city}, {order.billing_state} {order.billing_postal_code}<br>
+                            {order.billing_country}<br>
+                            {order.email}
+                        </div>
+                    </div>
+                    <div class="address-box">
+                        <h3>Shipped To</h3>
+                        <div class="recipient-name">{order.first_name} {order.last_name}</div>
+                        <div class="address-lines">
+                            {order.shipping_address_line1}<br>
+                            {f"{order.shipping_address_line2}<br>" if order.shipping_address_line2 else ""}
+                            {order.shipping_city}, {order.shipping_state} {order.shipping_postal_code}<br>
+                            {order.shipping_country}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dates-grid">
+                    <div class="date-box">
+                        <label>Order Date</label>
+                        <div>{order.created_at.strftime('%b %d, %Y')}</div>
+                    </div>
+                    <div class="date-box">
+                        <label>Payment Method</label>
+                        <div>{order.payment_method.replace('_', ' ').title()}</div>
+                    </div>
+                    <div class="date-box">
+                        <label>Payment Status</label>
+                        <div>{'Paid' if order.payment_status else 'Pending'}</div>
+                    </div>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 50%">Item Details</th>
+                            <th class="text-center">Qty</th>
+                            <th class="text-right">Price</th>
+                            <th class="text-right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        """
+        
+        for item in order.items.all():
+            html_content += f"""
+                        <tr>
+                            <td>
+                                <span class="item-name">{item.product_name}</span>
+                                <span class="item-sku">SKU: {item.product_sku}</span>
+                            </td>
+                            <td class="text-center">{item.quantity}</td>
+                            <td class="text-right">₹{item.product_price}</td>
+                            <td class="text-right">₹{item.total_price}</td>
+                        </tr>
+            """
+            
+        html_content += f"""
+                    </tbody>
+                </table>
+                
+                <div class="summary-section">
+                    <div class="summary-table">
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span>₹{order.subtotal}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Shipping</span>
+                            <span>₹{order.shipping_cost}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Tax (8%)</span>
+                            <span>₹{order.tax_amount}</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total Due</span>
+                            <span>₹{order.total_amount}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="footer">
+                    <p>Thank you for choosing AutoZen! We appreciate your business.</p>
+                    <p>For support, please contact help@autozen.com or visit www.autozen.com</p>
+                    <p style="margin-top: 20px; font-size: 11px;">AutoZen Inc • 1234 Car Part Lane, Automall City, AC 56789</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return HttpResponse(html_content, content_type='text/html')
+
+    @action(detail=False, methods=['post'], permission_classes=[])
+    def track(self, request):
+        """
+        Track an order by order number (public access).
+        Requires order_number and matches optional email for verification if provided.
+        """
+        order_number = request.data.get('order_number')
+        email = request.data.get('email')
+        
+        if not order_number:
+            return Response(
+                {'error': 'Order number is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            # Case-insensitive lookup for order number
+            order = Order.objects.get(order_number__iexact=order_number)
+            
+            # If email is provided, verify it matches
+            if email and order.email.lower() != email.lower():
+                return Response(
+                    {'error': 'Order found but email does not match'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            serializer = self.get_serializer(order)
+            return Response(serializer.data)
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Order not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
     @action(detail=False, methods=['post'], permission_classes=[])
     def checkout(self, request):
         """Process checkout and create order"""
@@ -233,7 +649,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             checkout_data = serializer.validated_data
             
             # Calculate totals
-            subtotal = 0
+            subtotal = Decimal('0.00')
             items_data = []
             
             # Validate items and calculate subtotal
@@ -271,10 +687,10 @@ class OrderViewSet(viewsets.ModelViewSet):
                     )
             
             # Calculate tax and total (simplified)
-            tax_rate = 0.08  # 8% tax
-            tax_amount = subtotal * tax_rate
-            shipping_cost = 10.00  # Fixed shipping cost
-            total_amount = subtotal + tax_amount + shipping_cost
+            tax_rate = Decimal('0.08')  # 8% tax
+            tax_amount = (subtotal * tax_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            shipping_cost = Decimal('10.00')  # Fixed shipping cost
+            total_amount = (subtotal + tax_amount + shipping_cost).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             
             # Create order
             order_data = {
@@ -301,21 +717,13 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'discount_amount': 0,
                 'total_amount': total_amount,
                 'notes': checkout_data.get('notes', ''),
+                'items': items_data
             }
             
             # Create order serializer
             order_serializer = OrderCreateSerializer(data=order_data, context=self.get_serializer_context())
             if order_serializer.is_valid():
                 order = order_serializer.save(user=request.user if request.user.is_authenticated else None)
-                
-                # Create order items
-                for item_data in items_data:
-                    item_data.pop('product_name')
-                    item_data.pop('product_sku')
-                    item_data.pop('product_price')
-                    item_data.pop('total_price')
-                    item_data['order'] = order.id
-                    OrderItem.objects.create(order=order, **item_data)
                 
                 # Update product stock
                 for item in items_data:
@@ -329,6 +737,20 @@ class OrderViewSet(viewsets.ModelViewSet):
                 # Invalidate user orders cache
                 if request.user.is_authenticated:
                     cache.delete(get_user_orders_cache_key(request.user.id))
+                    
+                    # Remove ordered items from cart
+                    try:
+                        cart = Cart.objects.get(user=request.user)
+                        product_ids = [item['product'] for item in items_data]
+                        CartItem.objects.filter(cart=cart, product_id__in=product_ids).delete()
+                        # Update cart timestamp and invalidate cache
+                        cart.save()
+                        cart._invalidate_cache()
+                        # Also invalidate view-level caches
+                        cache.delete(f"cart_{request.user.id}")
+                        cache.delete(f"cart_items_{request.user.id}")
+                    except Cart.DoesNotExist:
+                        pass
                 
                 return Response({
                     'message': 'Order created successfully',

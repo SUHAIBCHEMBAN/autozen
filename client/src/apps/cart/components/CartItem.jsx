@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import './CartItem.css'
 
-function CartItem({ item, onUpdateQuantity, onRemove, loading }) {
+function CartItem({ item, onUpdateQuantity, onRemove, loading, isSelected, onSelect }) {
   const { product, quantity, price, total_price } = item
 
   const getImageUrl = (image) => {
@@ -35,7 +35,14 @@ function CartItem({ item, onUpdateQuantity, onRemove, loading }) {
   }
 
   return (
-    <div className="cart-item">
+    <div className={`cart-item ${isSelected ? 'selected' : ''}`}>
+      <div className="cart-item__select">
+        <input 
+          type="checkbox" 
+          checked={isSelected || false} 
+          onChange={(e) => onSelect(product.id, e.target.checked)}
+        />
+      </div>
       <Link to={`/products/${product.slug}`} className="cart-item__image-link">
         <img
           src={imageUrl}

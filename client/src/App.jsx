@@ -13,6 +13,7 @@ import { Login, VerifyOTP, Profile } from './apps/users/pages'
 import { ProductListing, ProductDetail } from './apps/products/pages'
 import { Cart } from './apps/cart/pages'
 import { Wishlist } from './apps/wishlist/pages'
+import { Checkout, OrderConfirmation, OrderTracking, OrderHistory } from './apps/order/pages'
 
 function HomePage() {
   return (
@@ -103,6 +104,10 @@ function App() {
         <Route path="/products/:slug" element={<ProductDetail />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/wishlist" element={<Wishlist />} />
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmation />} />
+        <Route path="/track" element={<OrderTracking />} />
+        <Route path="/orders" element={<OrderHistory />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

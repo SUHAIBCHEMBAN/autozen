@@ -9,6 +9,7 @@ function Cart() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [updatingItem, setUpdatingItem] = useState(null)
+  const [selectedItems, setSelectedItems] = useState(new Set())
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -21,6 +22,9 @@ function Cart() {
       setError('')
       const data = await getCart()
       setCart(data)
+      // Select all items by default
+      const allItemIds = new Set(data.items.map(item => item.product.id))
+      setSelectedItems(allItemIds)
     } catch (err) {
       // Check if user is not authenticated
       if (err.message.includes('401') || err.message.includes('Authentication')) {
@@ -66,11 +70,33 @@ function Cart() {
       setLoading(true)
       await clearCart()
       await loadCart()
+      setSelectedItems(new Set())
     } catch (err) {
       alert(err.message || 'Failed to clear cart')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSelectItem = (productId, isSelected) => {
+    const newSelected = new Set(selectedItems)
+    if (isSelected) {
+      newSelected.add(productId)
+    } else {
+      newSelected.delete(productId)
+    }
+    setSelectedItems(newSelected)
+  }
+
+  const handleCheckout = () => {
+    if (selectedItems.size === 0) {
+      alert('Please select at least one item to checkout')
+      return
+    }
+    
+    // Filter cart items based on selection
+    const checkoutItems = cart.items.filter(item => selectedItems.has(item.product.id))
+    navigate('/checkout', { state: { selectedItems: checkoutItems } })
   }
 
   if (loading && !cart) {
@@ -104,6 +130,11 @@ function Cart() {
   const items = cart?.items || []
   const isEmpty = items.length === 0
 
+  // Calculate selected totals
+  const selectedCartItems = items.filter(item => selectedItems.has(item.product.id))
+  const selectedSubtotal = selectedCartItems.reduce((sum, item) => sum + parseFloat(item.total_price), 0)
+  const selectedQuantity = selectedCartItems.reduce((sum, item) => sum + item.quantity, 0)
+
   return (
     <div className="cart-page">
       <div className="cart-container">
@@ -135,6 +166,8 @@ function Cart() {
                   onUpdateQuantity={handleUpdateQuantity}
                   onRemove={handleRemove}
                   loading={updatingItem === item.product.id}
+                  isSelected={selectedItems.has(item.product.id)}
+                  onSelect={handleSelectItem}
                 />
               ))}
             </div>
@@ -143,16 +176,20 @@ function Cart() {
               <div className="summary-card">
                 <h2>Order Summary</h2>
                 <div className="summary-row">
-                  <span>Items ({cart.total_quantity || items.length})</span>
-                  <span>₹{parseFloat(cart.subtotal || 0).toFixed(2)}</span>
+                  <span>Items ({selectedQuantity})</span>
+                  <span>₹{selectedSubtotal.toFixed(2)}</span>
                 </div>
                 <div className="summary-divider"></div>
                 <div className="summary-row summary-total">
                   <span>Total</span>
-                  <span>₹{parseFloat(cart.subtotal || 0).toFixed(2)}</span>
+                  <span>₹{selectedSubtotal.toFixed(2)}</span>
                 </div>
-                <button className="btn-checkout" disabled={loading}>
-                  Proceed to Checkout
+                <button 
+                  className="btn-checkout" 
+                  onClick={handleCheckout}
+                  disabled={loading || selectedItems.size === 0}
+                >
+                  Proceed to Checkout ({selectedItems.size})
                 </button>
                 <Link to="/products" className="btn-continue-shopping">
                   Continue Shopping

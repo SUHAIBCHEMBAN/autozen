@@ -12,13 +12,22 @@ class OrderItemSerializer(serializers.ModelSerializer):
         source='product',
         lookup_field='slug'
     )
+    product_image = serializers.SerializerMethodField()
     
     class Meta:
         model = OrderItem
         fields = [
             'id', 'product', 'product_name', 'product_sku', 'product_price',
-            'quantity', 'total_price', 'product_url'
+            'quantity', 'total_price', 'product_url', 'product_image'
         ]
+        
+    def get_product_image(self, obj):
+        if obj.product and obj.product.featured_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.product.featured_image.url)
+            return obj.product.featured_image.url
+        return None
         read_only_fields = ['product_name', 'product_sku', 'product_price', 'total_price']
 
 
@@ -153,9 +162,7 @@ class CheckoutSerializer(serializers.Serializer):
     
     # Cart items (list of product IDs and quantities)
     items = serializers.ListField(
-        child=serializers.DictField(
-            child=serializers.CharField()
-        )
+        child=serializers.DictField()
     )
     
     # Notes

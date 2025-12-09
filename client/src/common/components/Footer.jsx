@@ -24,7 +24,8 @@ const footerColumns = [
     items: [
       { label: 'Cart', href: '/cart' },
       { label: 'Wishlist', href: '/wishlist' },
-      { label: 'Order Tracking', href: '/order-tracking' },
+      { label: 'My Orders', href: '/orders' },
+      { label: 'Order Tracking', href: '/track' },
       { label: 'My Account', href: '/profile' },
     ],
   },
