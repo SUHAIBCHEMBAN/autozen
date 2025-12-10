@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { getCartItems } from '../../cart/services/cartService'
 import { checkout } from '../services/orderService'
 import { getUserProfile } from '../../users/services/authService'
+import { getUserAddresses } from '../../users/services/authService'
 import './Checkout.css'
 
 function Checkout() {
@@ -13,6 +14,8 @@ function Checkout() {
   const [error, setError] = useState('')
   const [cartItems, setCartItems] = useState([])
   const [user, setUser] = useState(null)
+  const [savedAddresses, setSavedAddresses] = useState([])
+  const [showSavedAddresses, setShowSavedAddresses] = useState(false)
   
   // Form state
   const [formData, setFormData] = useState({
@@ -97,6 +100,17 @@ function Checkout() {
       } catch (err) {
         console.error('Failed to load user data:', err)
       }
+      
+      // Load saved addresses
+      try {
+        const addresses = await getUserAddresses()
+        setSavedAddresses(addresses)
+        if (addresses.length > 0) {
+          setShowSavedAddresses(true)
+        }
+      } catch (err) {
+        console.error('Failed to load saved addresses:', err)
+      }
     } catch (err) {
       if (err.message.includes('401') || err.message.includes('Authentication')) {
         navigate('/login', { state: { from: '/checkout' } })
@@ -115,6 +129,33 @@ function Checkout() {
       [name]: type === 'checkbox' ? checked : value,
     }))
     setError('')
+  }
+
+  const handleAddressSelect = (address) => {
+    // Populate both billing and shipping addresses with the selected address
+    setFormData(prev => ({
+      ...prev,
+      // Billing address
+      first_name: address.first_name,
+      last_name: address.last_name,
+      billing_address_line1: address.address_line1,
+      billing_address_line2: address.address_line2,
+      billing_city: address.city,
+      billing_state: address.state,
+      billing_postal_code: address.postal_code,
+      billing_country: address.country,
+      phone_number: address.phone_number,
+      
+      // Shipping address
+      shipping_address_line1: address.address_line1,
+      shipping_address_line2: address.address_line2,
+      shipping_city: address.city,
+      shipping_state: address.state,
+      shipping_postal_code: address.postal_code,
+      shipping_country: address.country,
+    }))
+    
+    setShowSavedAddresses(false)
   }
 
   // Calculate order totals
@@ -258,6 +299,43 @@ function Checkout() {
         <form onSubmit={handleSubmit} className="checkout-form">
           <div className="checkout-content">
             <div className="checkout-main">
+              {/* Saved Addresses Section */}
+              {showSavedAddresses && savedAddresses.length > 0 && (
+                <section className="checkout-section">
+                  <h2>Saved Addresses</h2>
+                  <div className="saved-addresses-list">
+                    {savedAddresses.map((address) => (
+                      <div key={address.id} className="saved-address-card" onClick={() => handleAddressSelect(address)}>
+                        <div className="saved-address-header">
+                          <h3>{address.title}</h3>
+                          {address.is_default && <span className="default-badge">Default</span>}
+                        </div>
+                        <div className="saved-address-body">
+                          <p className="saved-address-name">{address.first_name} {address.last_name}</p>
+                          <p className="saved-address-street">{address.address_line1}</p>
+                          {address.address_line2 && <p className="saved-address-street">{address.address_line2}</p>}
+                          <p className="saved-address-city">
+                            {address.city}, {address.state} {address.postal_code}
+                          </p>
+                          <p className="saved-address-country">{address.country}</p>
+                          <p className="saved-address-phone">{address.phone_number}</p>
+                        </div>
+                        <div className="saved-address-select">
+                          <span>Use this address</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button 
+                    type="button" 
+                    className="btn-secondary"
+                    onClick={() => setShowSavedAddresses(false)}
+                  >
+                    Enter Address Manually
+                  </button>
+                </section>
+              )}
+
               {/* Customer Information */}
               <section className="checkout-section">
                 <h2>Customer Information</h2>
@@ -598,5 +676,3 @@ function Checkout() {
 }
 
 export default Checkout
-
-

@@ -6,16 +6,14 @@ including OTP sending and verification.
 """
 
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import SendOTPView, VerifyOTPView, UserProfileView
+from .views import SendOTPView, VerifyOTPView, UserProfileView, UserAddressListView, UserAddressDetailView
 
 app_name = 'users'
-
-# Create router and register viewsets (if we had viewsets)
-# For function-based or class-based views, we still define them in urlpatterns
 
 urlpatterns = [
     path('send-otp/', SendOTPView.as_view(), name='send-otp'),
     path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
     path('profile/', UserProfileView.as_view(), name='user-profile'),
+    path('addresses/', UserAddressListView.as_view(), name='user-addresses'),
+    path('addresses/<int:pk>/', UserAddressDetailView.as_view(), name='user-address-detail'),
 ]

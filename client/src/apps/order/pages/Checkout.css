@@ -156,6 +156,80 @@
   color: var(--text-secondary);
 }
 
+/* Saved Addresses Styles */
+.saved-addresses-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.saved-address-card {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.saved-address-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.saved-address-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.saved-address-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.default-badge {
+  background: var(--primary-color);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.saved-address-body {
+  margin-bottom: 1rem;
+}
+
+.saved-address-name {
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+  color: var(--text-primary);
+}
+
+.saved-address-street,
+.saved-address-city,
+.saved-address-country,
+.saved-address-phone {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.saved-address-select {
+  text-align: center;
+  padding: 0.5rem;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
 .checkout-summary {
   position: sticky;
   top: 2rem;
@@ -295,6 +369,8 @@
   .form-row {
     grid-template-columns: 1fr;
   }
+  
+  .saved-addresses-list {
+    grid-template-columns: 1fr;
+  }
 }
-
-

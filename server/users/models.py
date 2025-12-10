@@ -127,6 +127,75 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_table = 'users'
 
 
+class Address(models.Model):
+    """
+    User address model for storing shipping/billing addresses.
+    
+    Attributes:
+        user (ForeignKey): Reference to the user who owns this address
+        title (CharField): Short title for the address (e.g., "Home", "Work")
+        first_name (CharField): First name of the recipient
+        last_name (CharField): Last name of the recipient
+        company (CharField): Company name (optional)
+        address_line1 (CharField): Street address line 1
+        address_line2 (CharField): Street address line 2 (optional)
+        city (CharField): City
+        state (CharField): State or province
+        postal_code (CharField): Postal or ZIP code
+        country (CharField): Country
+        phone_number (CharField): Contact phone number
+        is_default (BooleanField): Whether this is the default address
+        created_at (DateTimeField): When the address was created
+        updated_at (DateTimeField): When the address was last updated
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='addresses')
+    title = models.CharField(max_length=100, help_text="Short title for this address (e.g., Home, Work)")
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    company = models.CharField(max_length=100, blank=True)
+    address_line1 = models.CharField(max_length=255, verbose_name="Address Line 1")
+    address_line2 = models.CharField(max_length=255, blank=True, verbose_name="Address Line 2")
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=20)
+    country = models.CharField(max_length=100, default="India")
+    phone_number = models.CharField(max_length=15, validators=[RegexValidator(regex=r'^\+?1?\d{9,15}$')])
+    is_default = models.BooleanField(default=False, help_text="Make this your default address")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_addresses'
+        verbose_name = 'User Address'
+        verbose_name_plural = 'User Addresses'
+        ordering = ['-is_default', '-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.first_name} {self.last_name}, {self.city}, {self.state}"
+
+    def save(self, *args, **kwargs):
+        # If this is set as default, unset other defaults for this user
+        if self.is_default:
+            Address.objects.filter(user=self.user, is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+    @property
+    def full_name(self):
+        """Return the full name of the recipient."""
+        return f"{self.first_name} {self.last_name}"
+
+    @property
+    def formatted_address(self):
+        """Return a formatted address string."""
+        address_parts = [
+            self.address_line1,
+            self.address_line2,
+            f"{self.city}, {self.state} {self.postal_code}",
+            self.country
+        ]
+        return ", ".join([part for part in address_parts if part])
+
+
 @receiver(post_save, sender=User)
 @receiver(post_delete, sender=User)
 def invalidate_user_cache(sender, instance, **kwargs):

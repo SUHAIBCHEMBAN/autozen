@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import './Profile.css'
-import { getUserProfile, updateUserProfile } from '../services/authService'
+import { getUserProfile, updateUserProfile, getUserOrders, getUserWishlist, getUserAddresses, createUserAddress, updateUserAddress, deleteUserAddress } from '../services/authService'
 import { UserIcon, PackageIcon, HeartIcon, LocationIcon, SettingsIcon } from '../../../common/components/Icons'
+import ProfileSection from '../components/ProfileSection'
+import OrdersSection from '../components/OrdersSection'
+import WishlistSection from '../components/WishlistSection'
+import AddressesSection from '../components/AddressesSection'
+import SettingsSection from '../components/SettingsSection'
 
 function Profile() {
   const [activeTab, setActiveTab] = useState('profile')
@@ -20,6 +25,36 @@ function Profile() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [saving, setSaving] = useState(false)
+  
+  // Orders and wishlist states
+  const [orders, setOrders] = useState([])
+  const [wishlistItems, setWishlistItems] = useState([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [wishlistLoading, setWishlistLoading] = useState(false)
+  const [ordersError, setOrdersError] = useState('')
+  const [wishlistError, setWishlistError] = useState('')
+  
+  // Addresses states
+  const [addresses, setAddresses] = useState([])
+  const [addressesLoading, setAddressesLoading] = useState(false)
+  const [addressesError, setAddressesError] = useState('')
+  const [showAddAddressForm, setShowAddAddressForm] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState(null)
+  const [addressFormData, setAddressFormData] = useState({
+    title: '',
+    first_name: '',
+    last_name: '',
+    company: '',
+    address_line1: '',
+    address_line2: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    country: 'India',
+    phone_number: '',
+    is_default: false
+  })
+  
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -48,6 +83,27 @@ function Profile() {
     }
   }, [navigate])
 
+  // Fetch orders when orders tab is active
+  useEffect(() => {
+    if (activeTab === 'orders' && user) {
+      fetchUserOrders()
+    }
+  }, [activeTab, user])
+
+  // Fetch wishlist when wishlist tab is active
+  useEffect(() => {
+    if (activeTab === 'wishlist' && user) {
+      fetchUserWishlist()
+    }
+  }, [activeTab, user])
+
+  // Fetch addresses when addresses tab is active
+  useEffect(() => {
+    if (activeTab === 'addresses' && user) {
+      fetchUserAddresses()
+    }
+  }, [activeTab, user])
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({
@@ -56,6 +112,15 @@ function Profile() {
     }))
     setError('')
     setSuccess('')
+  }
+
+  const handleAddressInputChange = (e) => {
+    const { name, value, type, checked } = e.target
+    const newValue = type === 'checkbox' ? checked : value
+    setAddressFormData((prev) => ({
+      ...prev,
+      [name]: newValue,
+    }))
   }
 
   const handleImageChange = (e) => {
@@ -123,6 +188,190 @@ function Profile() {
     // Also clear from localStorage if exists
     localStorage.removeItem('authToken')
     navigate('/login', { replace: true })
+  }
+
+  const fetchUserOrders = async () => {
+    if (ordersLoading) return
+    
+    setOrdersLoading(true)
+    setOrdersError('')
+    
+    try {
+      const ordersData = await getUserOrders()
+      setOrders(ordersData)
+    } catch (err) {
+      setOrdersError(err.message || 'Failed to load orders')
+    } finally {
+      setOrdersLoading(false)
+    }
+  }
+
+  const fetchUserWishlist = async () => {
+    if (wishlistLoading) return
+    
+    setWishlistLoading(true)
+    setWishlistError('')
+    
+    try {
+      const wishlistData = await getUserWishlist()
+      setWishlistItems(wishlistData)
+    } catch (err) {
+      setWishlistError(err.message || 'Failed to load wishlist')
+    } finally {
+      setWishlistLoading(false)
+    }
+  }
+
+  const fetchUserAddresses = async () => {
+    if (addressesLoading) return
+    
+    setAddressesLoading(true)
+    setAddressesError('')
+    
+    try {
+      const addressesData = await getUserAddresses()
+      setAddresses(addressesData)
+    } catch (err) {
+      setAddressesError(err.message || 'Failed to load addresses')
+    } finally {
+      setAddressesLoading(false)
+    }
+  }
+
+  const handleAddAddress = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    
+    try {
+      const newAddress = await createUserAddress(addressFormData)
+      setAddresses([...addresses, newAddress])
+      setShowAddAddressForm(false)
+      setAddressFormData({
+        title: '',
+        first_name: '',
+        last_name: '',
+        company: '',
+        address_line1: '',
+        address_line2: '',
+        city: '',
+        state: '',
+        postal_code: '',
+        country: 'India',
+        phone_number: '',
+        is_default: false
+      })
+      setSuccess('Address added successfully!')
+    } catch (err) {
+      setError(err.message || 'Failed to add address. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleUpdateAddress = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    
+    try {
+      const updatedAddress = await updateUserAddress(editingAddressId, addressFormData)
+      setAddresses(addresses.map(addr => addr.id === editingAddressId ? updatedAddress : addr))
+      setEditingAddressId(null)
+      setAddressFormData({
+        title: '',
+        first_name: '',
+        last_name: '',
+        company: '',
+        address_line1: '',
+        address_line2: '',
+        city: '',
+        state: '',
+        postal_code: '',
+        country: 'India',
+        phone_number: '',
+        is_default: false
+      })
+      setSuccess('Address updated successfully!')
+    } catch (err) {
+      setError(err.message || 'Failed to update address. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteAddress = async (addressId) => {
+    if (!window.confirm('Are you sure you want to delete this address?')) {
+      return
+    }
+    
+    try {
+      await deleteUserAddress(addressId)
+      setAddresses(addresses.filter(addr => addr.id !== addressId))
+      setSuccess('Address deleted successfully!')
+    } catch (err) {
+      setError(err.message || 'Failed to delete address. Please try again.')
+    }
+  }
+
+  const handleEditAddress = (address) => {
+    setEditingAddressId(address.id)
+    setAddressFormData({
+      title: address.title || '',
+      first_name: address.first_name || '',
+      last_name: address.last_name || '',
+      company: address.company || '',
+      address_line1: address.address_line1 || '',
+      address_line2: address.address_line2 || '',
+      city: address.city || '',
+      state: address.state || '',
+      postal_code: address.postal_code || '',
+      country: address.country || 'India',
+      phone_number: address.phone_number || '',
+      is_default: address.is_default || false
+    })
+  }
+
+  const handleCancelEditAddress = () => {
+    setEditingAddressId(null)
+    setAddressFormData({
+      title: '',
+      first_name: '',
+      last_name: '',
+      company: '',
+      address_line1: '',
+      address_line2: '',
+      city: '',
+      state: '',
+      postal_code: '',
+      country: 'India',
+      phone_number: '',
+      is_default: false
+    })
+  }
+
+  const getImageUrl = (image) => {
+    if (!image) return '/placeholder-product.png'
+    if (image.startsWith('http')) return image
+    return `http://localhost:8000${image}`
+  }
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'delivered': return 'status-success'
+      case 'shipped': return 'status-info'
+      case 'processing': return 'status-warning'
+      case 'cancelled': return 'status-danger'
+      default: return 'status-default'
+    }
+  }
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
   }
 
   if (loading) {
@@ -213,246 +462,69 @@ function Profile() {
 
         <div className="profile-content">
           {activeTab === 'profile' && (
-            <div className="profile-section">
-              <div className="section-header">
-                <h2>Personal Information</h2>
-                {!editMode && (
-                  <button
-                    className="btn-edit"
-                    onClick={() => {
-                      setEditMode(true)
-                      setError('')
-                      setSuccess('')
-                    }}
-                  >
-                    Edit Profile
-                  </button>
-                )}
-              </div>
-
-              {error && (
-                <div className="alert alert-error" role="alert">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  <span>{error}</span>
-                </div>
-              )}
-
-              {success && (
-                <div className="alert alert-success" role="alert">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                  <span>{success}</span>
-                </div>
-              )}
-
-              {editMode ? (
-                <form onSubmit={handleSaveProfile} className="profile-form">
-                  <div className="form-group">
-                    <label htmlFor="username">Username</label>
-                    <input
-                      type="text"
-                      id="username"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                      placeholder="Choose a username"
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="email">Email Address</label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      placeholder="your@email.com"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="phone_number">Phone Number</label>
-                    <input
-                      type="tel"
-                      id="phone_number"
-                      name="phone_number"
-                      value={formData.phone_number}
-                      onChange={handleInputChange}
-                      placeholder="+1234567890"
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="profile">Profile Bio</label>
-                    <textarea
-                      id="profile"
-                      name="profile"
-                      value={formData.profile}
-                      onChange={handleInputChange}
-                      placeholder="Tell us about yourself..."
-                      rows="4"
-                    />
-                  </div>
-
-                  <div className="form-actions">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => {
-                        setEditMode(false)
-                        setFormData({
-                          email: user.email || '',
-                          phone_number: user.phone_number || '',
-                          username: user.username || '',
-                          profile: user.profile || '',
-                        })
-                        setPreviewImage(null)
-                        setError('')
-                        setSuccess('')
-                      }}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </button>
-                    <button type="submit" className="btn-primary" disabled={saving}>
-                      {saving ? (
-                        <>
-                          <span className="spinner-small"></span>
-                          Saving...
-                        </>
-                      ) : (
-                        'Save Changes'
-                      )}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="profile-details">
-                  <div className="detail-item">
-                    <span className="detail-label">Username</span>
-                    <span className="detail-value">
-                      {user.username || <span className="text-muted">Not set</span>}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Email</span>
-                    <span className="detail-value">
-                      {user.email || <span className="text-muted">Not provided</span>}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Phone Number</span>
-                    <span className="detail-value">
-                      {user.phone_number || <span className="text-muted">Not provided</span>}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Bio</span>
-                    <span className="detail-value">
-                      {user.profile || <span className="text-muted">No bio provided</span>}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">User ID</span>
-                    <span className="detail-value">#{user.user_id}</span>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ProfileSection
+              user={user}
+              editMode={editMode}
+              setEditMode={setEditMode}
+              formData={formData}
+              handleInputChange={handleInputChange}
+              handleSaveProfile={handleSaveProfile}
+              handleImageChange={handleImageChange}
+              previewImage={previewImage}
+              error={error}
+              success={success}
+              saving={saving}
+              setSuccess={setSuccess}
+              setError={setError}
+            />
           )}
 
           {activeTab === 'orders' && (
-            <div className="profile-section">
-              <div className="section-header">
-                <h2>Order History</h2>
-              </div>
-              <div className="empty-state">
-                <div className="empty-icon"><PackageIcon size={64} /></div>
-                <h3>No orders yet</h3>
-                <p>When you place an order, it will appear here.</p>
-                <Link to="/products" className="btn-primary">
-                  Start Shopping
-                </Link>
-              </div>
-            </div>
+            <OrdersSection
+              orders={orders}
+              ordersLoading={ordersLoading}
+              ordersError={ordersError}
+              fetchUserOrders={fetchUserOrders}
+            />
           )}
 
           {activeTab === 'wishlist' && (
-            <div className="profile-section">
-              <div className="section-header">
-                <h2>My Wishlist</h2>
-              </div>
-              <div className="empty-state">
-                <div className="empty-icon"><HeartIcon size={64} /></div>
-                <h3>Your wishlist is empty</h3>
-                <p>Save items you love for later.</p>
-                <Link to="/products" className="btn-primary">
-                  Browse Products
-                </Link>
-              </div>
-            </div>
+            <WishlistSection
+              wishlistItems={wishlistItems}
+              wishlistLoading={wishlistLoading}
+              wishlistError={wishlistError}
+              fetchUserWishlist={fetchUserWishlist}
+            />
           )}
 
           {activeTab === 'addresses' && (
-            <div className="profile-section">
-              <div className="section-header">
-                <h2>Saved Addresses</h2>
-                <button className="btn-primary">Add Address</button>
-              </div>
-              <div className="empty-state">
-                <div className="empty-icon"><LocationIcon size={64} /></div>
-                <h3>No saved addresses</h3>
-                <p>Add an address for faster checkout.</p>
-                <button className="btn-primary">Add Your First Address</button>
-              </div>
-            </div>
+            <AddressesSection
+              addresses={addresses}
+              addressesLoading={addressesLoading}
+              addressesError={addressesError}
+              fetchUserAddresses={fetchUserAddresses}
+              handleAddAddress={handleAddAddress}
+              handleUpdateAddress={handleUpdateAddress}
+              handleDeleteAddress={handleDeleteAddress}
+              handleEditAddress={handleEditAddress}
+              setShowAddAddressForm={setShowAddAddressForm}
+              showAddAddressForm={showAddAddressForm}
+              editingAddressId={editingAddressId}
+              addressFormData={addressFormData}
+              handleAddressInputChange={handleAddressInputChange}
+              handleCancelEditAddress={handleCancelEditAddress}
+              saving={saving}
+              error={error}
+              success={success}
+              setError={setError}
+              setSuccess={setSuccess}
+            />
           )}
 
           {activeTab === 'settings' && (
-            <div className="profile-section">
-              <div className="section-header">
-                <h2>Account Settings</h2>
-              </div>
-              <div className="settings-list">
-                <div className="setting-item">
-                  <div className="setting-info">
-                    <h3>Notifications</h3>
-                    <p>Manage your email and push notifications</p>
-                  </div>
-                  <button className="btn-secondary">Manage</button>
-                </div>
-                <div className="setting-item">
-                  <div className="setting-info">
-                    <h3>Privacy</h3>
-                    <p>Control your privacy settings</p>
-                  </div>
-                  <button className="btn-secondary">Manage</button>
-                </div>
-                <div className="setting-item">
-                  <div className="setting-info">
-                    <h3>Security</h3>
-                    <p>Update your security preferences</p>
-                  </div>
-                  <button className="btn-secondary">Manage</button>
-                </div>
-                <div className="setting-item danger">
-                  <div className="setting-info">
-                    <h3>Logout</h3>
-                    <p>Sign out of your account</p>
-                  </div>
-                  <button className="btn-danger" onClick={handleLogout}>
-                    Logout
-                  </button>
-                </div>
-              </div>
-            </div>
+            <SettingsSection
+              handleLogout={handleLogout}
+            />
           )}
         </div>
       </div>

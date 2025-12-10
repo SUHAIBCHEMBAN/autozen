@@ -102,10 +102,10 @@ function ProductListing() {
   return (
     <div className="product-listing-page">
       <div className="product-listing-container">
-        <div className="listing-header">
+        {/* <div className="listing-header">
           <h1>Products</h1>
           <p>Browse our collection of automotive parts and accessories</p>
-        </div>
+        </div> */}
 
         <form onSubmit={handleSearch} className="search-bar">
           <input

@@ -1,135 +1,83 @@
-"""
-Serializers for the users app.
-
-This module defines serializers for user authentication operations,
-including login and OTP verification.
-"""
-
 from rest_framework import serializers
-from django.core.validators import EmailValidator, RegexValidator
-from django.contrib.auth import get_user_model
-import re
-
-User = get_user_model()
+from .models import User, Address
 
 
 class UserSerializer(serializers.ModelSerializer):
     """
     Serializer for the User model.
     
-    Used for creating and updating user profiles.
+    Handles serialization and deserialization of user data for API endpoints.
     """
+    
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'phone_number', 'profile')
-        read_only_fields = ('id',)
+        fields = ['id', 'email', 'phone_number', 'username', 'profile', 'date_joined']
+        read_only_fields = ['id', 'date_joined']
 
 
-class LoginSerializer(serializers.Serializer):
+class UserProfileSerializer(serializers.ModelSerializer):
     """
-    Serializer for user login requests.
+    Serializer for user profile updates.
     
-    Validates that the provided identifier is either a valid email or phone number.
+    Handles partial updates to user profile information.
     """
-    email_or_phone = serializers.CharField(max_length=255, required=True)
     
-    def validate_email_or_phone(self, value):
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'phone_number', 'profile']
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Address model.
+    
+    Handles serialization and deserialization of address data for API endpoints.
+    """
+    
+    class Meta:
+        model = Address
+        fields = [
+            'id', 'title', 'first_name', 'last_name', 'company',
+            'address_line1', 'address_line2', 'city', 'state',
+            'postal_code', 'country', 'phone_number', 'is_default',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
         """
-        Validate that the input is either a valid email or phone number.
+        Validate address data.
+        
+        Ensures that if an address is marked as default, it belongs to the requesting user.
+        """
+        # This validation will be handled in the view
+        return attrs
+
+
+class AddressCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating new addresses.
+    
+    Handles creation of new address records with user association.
+    """
+    
+    class Meta:
+        model = Address
+        fields = [
+            'title', 'first_name', 'last_name', 'company',
+            'address_line1', 'address_line2', 'city', 'state',
+            'postal_code', 'country', 'phone_number', 'is_default'
+        ]
+
+    def create(self, validated_data):
+        """
+        Create a new address instance.
         
         Args:
-            value (str): The email or phone number to validate
+            validated_data (dict): Validated address data
             
         Returns:
-            str: The validated email or phone number
-            
-        Raises:
-            ValidationError: If the input is neither a valid email nor phone number
+            Address: The created address instance
         """
-        # Check if it's a valid email
-        email_validator = EmailValidator()
-        phone_validator = RegexValidator(regex=r'^\+?1?\d{9,15}$')
-        
-        is_email = False
-        is_phone = False
-        
-        try:
-            email_validator(value)
-            is_email = True
-        except:
-            pass
-            
-        try:
-            phone_validator(value)
-            is_phone = True
-        except:
-            pass
-            
-        if not is_email and not is_phone:
-            raise serializers.ValidationError("Enter a valid email or phone number.")
-            
-        return value
-
-
-class OTPVerificationSerializer(serializers.Serializer):
-    """
-    Serializer for OTP verification requests.
-    
-    Validates both the identifier (email or phone) and the OTP code.
-    """
-    email_or_phone = serializers.CharField(max_length=255, required=True)
-    otp = serializers.CharField(max_length=6, required=True)
-    
-    def validate_otp(self, value):
-        """
-        Validate that OTP is a 6-digit number.
-        
-        Args:
-            value (str): The OTP code to validate
-            
-        Returns:
-            str: The validated OTP code
-            
-        Raises:
-            ValidationError: If the OTP is not a 6-digit number
-        """
-        if not re.match(r'^\d{6}$', value):
-            raise serializers.ValidationError("OTP must be a 6-digit number.")
-        return value
-    
-    def validate_email_or_phone(self, value):
-        """
-        Validate that the input is either a valid email or phone number.
-        
-        Args:
-            value (str): The email or phone number to validate
-            
-        Returns:
-            str: The validated email or phone number
-            
-        Raises:
-            ValidationError: If the input is neither a valid email nor phone number
-        """
-        # Check if it's a valid email
-        email_validator = EmailValidator()
-        phone_validator = RegexValidator(regex=r'^\+?1?\d{9,15}$')
-        
-        is_email = False
-        is_phone = False
-        
-        try:
-            email_validator(value)
-            is_email = True
-        except:
-            pass
-            
-        try:
-            phone_validator(value)
-            is_phone = True
-        except:
-            pass
-            
-        if not is_email and not is_phone:
-            raise serializers.ValidationError("Enter a valid email or phone number.")
-            
-        return value
+        # The user will be set in the view
+        return Address.objects.create(**validated_data)

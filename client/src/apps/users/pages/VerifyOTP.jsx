@@ -107,14 +107,10 @@ function VerifyOTP() {
         sessionStorage.setItem('authToken', response.token)
       }
       
-      // Store user data
-      sessionStorage.setItem('user', JSON.stringify({
-        user_id: response.user_id,
-        email: response.email,
-        phone_number: response.phone_number,
-        username: response.username,
-        profile: response.profile,
-      }))
+      // Store complete user data
+      if (response.user) {
+        sessionStorage.setItem('user', JSON.stringify(response.user))
+      }
 
       // Navigate to profile page
       navigate('/profile', { replace: true })

@@ -1,206 +1,320 @@
 """
 Views for the users app.
 
-This module defines API views for user authentication operations,
-including sending and verifying OTP codes with caching implementation.
+This module defines views for user authentication operations,
+including OTP sending and verification, and user profile management.
 """
 
-from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
-from django.core.mail import send_mail
-from django.conf import settings
-from .serializers import LoginSerializer, OTPVerificationSerializer, UserSerializer
-from .models import User
-from .cache_utils import store_otp, verify_otp, delete_otp, get_user_from_cache, cache_user
-import random
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from .models import User, Address
+from .serializers import UserSerializer, UserProfileSerializer, AddressSerializer, AddressCreateSerializer
 import logging
+import random
 
-# Set up logging
 logger = logging.getLogger(__name__)
+
 
 class SendOTPView(APIView):
     """
-    API view for sending OTP codes to users.
+    View for sending OTP to user's email or phone number.
     
-    Handles POST requests to send OTP codes via email or SMS.
-    Uses caching to store OTP codes for verification.
+    Generates a 6-digit OTP and sends it to the provided email or phone number.
+    In development, OTP is logged to console instead of being sent via email/SMS.
     """
-    permission_classes = [AllowAny]  # Allow unauthenticated access
+    permission_classes = [AllowAny]  # Make this endpoint publicly accessible
     
     def post(self, request):
         """
-        Handle POST request to send OTP code.
+        Send OTP to the provided email or phone number.
         
         Args:
-            request: The HTTP request object containing email_or_phone
+            request (Request): The HTTP request containing email_or_phone
             
         Returns:
-            Response: JSON response with success/error message
+            Response: Success or error response with appropriate status code
         """
-        serializer = LoginSerializer(data=request.data)
-        if serializer.is_valid():
-            email_or_phone = serializer.validated_data['email_or_phone']
+        email_or_phone = request.data.get('email_or_phone')
+        
+        if not email_or_phone:
+            return Response(
+                {'error': 'Email or phone number is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
             
-            # Generate 6 digit OTP
-            otp = str(random.randint(100000, 999999))
-            
-            # Store OTP in cache using cache utility
-            store_otp(email_or_phone, otp)
-            
-            # Print OTP to terminal for development
-            if settings.DEBUG:
-                print(f"\n{'='*50}")
-                print(f"DEVELOPMENT MODE - OTP for {email_or_phone}: {otp}")
-                print(f"{'='*50}\n")
-                # Also log it
-                logger.info(f"DEVELOPMENT MODE - OTP for {email_or_phone}: {otp}")
-            
-            # Check if it's email or phone
-            if '@' in email_or_phone:
-                # Send email
-                try:
-                    send_mail(
-                        'Your OTP for Login',
-                        f'Your OTP is: {otp}',
-                        settings.EMAIL_HOST_USER,
-                        [email_or_phone],
-                        fail_silently=False,
-                    )
-                    return Response({
-                        'message': 'OTP sent successfully to your email.',
-                        'identifier': email_or_phone
-                    }, status=status.HTTP_200_OK)
-                except Exception as e:
-                    return Response({
-                        'error': 'Failed to send OTP email.'
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            else:
-                # For phone, in a real application you would integrate with an SMS service
-                # For now, we'll just simulate it
-                return Response({
-                    'message': 'OTP sent successfully to your phone.',
-                    'identifier': email_or_phone
-                }, status=status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Generate 6-digit OTP
+        otp = str(random.randint(100000, 999999))
+        
+        # Cache OTP for 10 minutes with the email/phone as key
+        cache_key = f"otp_{email_or_phone}"
+        cache.set(cache_key, otp, 600)  # 600 seconds = 10 minutes
+        
+        # In development, print OTP to console instead of sending email/SMS
+        logger.info(f"OTP for {email_or_phone}: {otp}")
+        print(f"\n===== DEVELOPMENT OTP =====")
+        print(f"OTP for {email_or_phone}: {otp}")
+        print(f"========================\n")
+        
+        return Response({
+            'message': 'OTP sent successfully',
+            'identifier': email_or_phone
+        }, status=status.HTTP_200_OK)
 
 
 class VerifyOTPView(APIView):
     """
-    API view for verifying OTP codes from users.
+    View for verifying OTP provided by the user.
     
-    Handles POST requests to verify OTP codes and authenticate users.
-    Implements zero-query pattern using caching for user data.
+    Validates the OTP against the cached value and creates/authenticates the user.
     """
-    permission_classes = [AllowAny]  # Allow unauthenticated access
+    permission_classes = [AllowAny]  # Make this endpoint publicly accessible
     
     def post(self, request):
         """
-        Handle POST request to verify OTP code.
+        Verify the provided OTP and authenticate/create the user.
         
         Args:
-            request: The HTTP request object containing email_or_phone and otp
+            request (Request): The HTTP request containing email_or_phone and otp
             
         Returns:
-            Response: JSON response with authentication result and user data
+            Response: Authentication token and user data or error response
         """
-        serializer = OTPVerificationSerializer(data=request.data)
-        if serializer.is_valid():
-            email_or_phone = serializer.validated_data['email_or_phone']
-            otp = serializer.validated_data['otp']
+        email_or_phone = request.data.get('email_or_phone')
+        otp = request.data.get('otp')
+        
+        if not email_or_phone or not otp:
+            return Response(
+                {'error': 'Email/Phone and OTP are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
             
-            # Verify OTP using cache utility (zero-query pattern)
-            if not verify_otp(email_or_phone, otp):
-                # Check if OTP expired or is invalid
-                return Response({
-                    'error': 'OTP expired or invalid.'
-                }, status=status.HTTP_400_BAD_REQUEST)
-                
-            # OTP is valid, create or get user with caching
+        # Get cached OTP
+        cache_key = f"otp_{email_or_phone}"
+        cached_otp = cache.get(cache_key)
+        
+        if not cached_otp:
+            return Response(
+                {'error': 'OTP expired or not sent'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        if otp != cached_otp:
+            return Response(
+                {'error': 'Invalid OTP'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # OTP is valid, delete it from cache
+        cache.delete(cache_key)
+        
+        # Check if user exists, create if not
+        user = None
+        try:
+            if '@' in email_or_phone:
+                user = User.objects.get(email=email_or_phone)
+            else:
+                user = User.objects.get(phone_number=email_or_phone)
+        except User.DoesNotExist:
+            # Create new user
             try:
-                # Try to get user from cache first (zero-query pattern)
-                user = get_user_from_cache(email_or_phone)
+                if '@' in email_or_phone:
+                    user = User.objects.create_user(email=email_or_phone)
+                else:
+                    user = User.objects.create_user(phone_number=email_or_phone)
+            except ValidationError as e:
+                return Response(
+                    {'error': str(e)}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
                 
-                if not user:
-                    # User not in cache, get from database
-                    if '@' in email_or_phone:
-                        user, created = User.objects.get_or_create(email=email_or_phone)
-                        if created:
-                            user.phone_number = None  # Since user logged in with email
-                            user.save()
-                    else:
-                        user, created = User.objects.get_or_create(phone_number=email_or_phone)
-                        if created:
-                            user.email = None  # Since user logged in with phone
-                            user.save()
-                    
-                    # Cache the user data for future requests
-                    cache_user(user)
-                
-            except Exception as e:
-                return Response({
-                    'error': 'Failed to create/get user.'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
-            # Delete OTP from cache after successful verification
-            delete_otp(email_or_phone)
-            
-            # Create or get auth token for the user
-            token, created = Token.objects.get_or_create(user=user)
-            
-            # In a real application, you would generate a token here
-            # For simplicity, we're just returning success
-            return Response({
-                'message': 'Login successful.',
-                'token': token.key,
-                'user_id': user.id,
-                'email': user.email,
-                'phone_number': user.phone_number,
-                'username': user.username,
-                'profile': user.profile
-            }, status=status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Create or get authentication token
+        token, created = Token.objects.get_or_create(user=user)
+        
+        # Serialize user data
+        serializer = UserSerializer(user)
+        
+        return Response({
+            'message': 'OTP verified successfully',
+            'token': token.key,
+            'user': serializer.data
+        }, status=status.HTTP_200_OK)
 
 
 class UserProfileView(APIView):
     """
-    API view for managing user profile.
+    View for managing user profile information.
     
-    Handles GET requests to retrieve user profile and PUT requests to update it.
-    Requires authentication.
+    Allows authenticated users to view and update their profile data.
     """
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
         """
-        Handle GET request to retrieve user profile.
+        Get the authenticated user's profile information.
         
         Args:
-            request: The HTTP request object
+            request (Request): The authenticated HTTP request
             
         Returns:
-            Response: JSON response with user profile data
+            Response: User profile data
         """
         serializer = UserSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     def put(self, request):
         """
-        Handle PUT request to update user profile.
+        Update the authenticated user's profile information.
         
         Args:
-            request: The HTTP request object containing profile data
+            request (Request): The authenticated HTTP request with profile data
             
         Returns:
-            Response: JSON response with updated user profile data
+            Response: Updated user profile data or error response
         """
-        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        serializer = UserProfileSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserAddressListView(APIView):
+    """
+    View for listing and creating user addresses.
+    
+    Allows authenticated users to view their saved addresses and add new ones.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """
+        Get all addresses for the authenticated user.
+        
+        Args:
+            request (Request): The authenticated HTTP request
+            
+        Returns:
+            Response: List of user's addresses
+        """
+        addresses = Address.objects.filter(user=request.user)
+        serializer = AddressSerializer(addresses, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        """
+        Create a new address for the authenticated user.
+        
+        Args:
+            request (Request): The authenticated HTTP request with address data
+            
+        Returns:
+            Response: Created address data or error response
+        """
+        serializer = AddressCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            # Set the user to the authenticated user
+            address = serializer.save(user=request.user)
+            # Return the full serialized address
+            full_serializer = AddressSerializer(address)
+            return Response(full_serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserAddressDetailView(APIView):
+    """
+    View for managing individual user addresses.
+    
+    Allows authenticated users to view, update, or delete specific addresses.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get_object(self, user, pk):
+        """
+        Get an address belonging to the user.
+        
+        Args:
+            user (User): The authenticated user
+            pk (int): The primary key of the address
+            
+        Returns:
+            Address: The address object if it belongs to the user
+            
+        Raises:
+            Address.DoesNotExist: If the address doesn't exist or doesn't belong to the user
+        """
+        try:
+            return Address.objects.get(pk=pk, user=user)
+        except Address.DoesNotExist:
+            return None
+    
+    def get(self, request, pk):
+        """
+        Get a specific address for the authenticated user.
+        
+        Args:
+            request (Request): The authenticated HTTP request
+            pk (int): The primary key of the address
+            
+        Returns:
+            Response: Address data or error response
+        """
+        address = self.get_object(request.user, pk)
+        if not address:
+            return Response(
+                {'error': 'Address not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        serializer = AddressSerializer(address)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def put(self, request, pk):
+        """
+        Update a specific address for the authenticated user.
+        
+        Args:
+            request (Request): The authenticated HTTP request with address data
+            pk (int): The primary key of the address
+            
+        Returns:
+            Response: Updated address data or error response
+        """
+        address = self.get_object(request.user, pk)
+        if not address:
+            return Response(
+                {'error': 'Address not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = AddressSerializer(address, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        """
+        Delete a specific address for the authenticated user.
+        
+        Args:
+            request (Request): The authenticated HTTP request
+            pk (int): The primary key of the address
+            
+        Returns:
+            Response: Success response or error response
+        """
+        address = self.get_object(request.user, pk)
+        if not address:
+            return Response(
+                {'error': 'Address not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        address.delete()
+        return Response(
+            {'message': 'Address deleted successfully'}, 
+            status=status.HTTP_204_NO_CONTENT
+        )
