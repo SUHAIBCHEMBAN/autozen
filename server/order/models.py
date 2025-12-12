@@ -146,6 +146,10 @@ class Order(models.Model):
     def can_be_cancelled(self):
         """Check if order can be cancelled"""
         return self.status in [OrderStatus.PENDING, OrderStatus.CONFIRMED]
+    
+    def can_be_returned(self):
+        """Check if order can be returned"""
+        return self.status == OrderStatus.DELIVERED
 
     def update_status(self, new_status):
         """Update order status with timestamp tracking"""

@@ -26,11 +26,6 @@ function Cart() {
       const allItemIds = new Set(data.items.map(item => item.product.id))
       setSelectedItems(allItemIds)
     } catch (err) {
-      // Check if user is not authenticated
-      if (err.message.includes('401') || err.message.includes('Authentication')) {
-        navigate('/login', { replace: true })
-        return
-      }
       setError(err.message || 'Failed to load cart')
     } finally {
       setLoading(false)
@@ -204,4 +199,3 @@ function Cart() {
 }
 
 export default Cart
-

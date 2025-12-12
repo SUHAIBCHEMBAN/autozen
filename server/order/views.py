@@ -162,16 +162,35 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     @action(detail=True, methods=['post'])
-    def cancel(self, request, pk=None):
-        """Cancel an order if possible"""
+    def cancel(self, request, pk=None, **kwargs):
+        """Cancel an order if possible and restore inventory"""
         order = self.get_object()
+        
+        # Handle both pk and order_number parameters
+        if not pk and 'order_number' in kwargs:
+            # The lookup is handled by the viewset's lookup_field
+            pass
+        
+        # Check if order can be cancelled
         if not order.can_be_cancelled():
             return Response(
                 {'error': 'Order cannot be cancelled in its current status'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Store original status for inventory restoration logic
+        original_status = order.status
+        
+        # Update order status
         order.update_status(OrderStatus.CANCELLED)
+        
+        # Restore inventory for cancelled orders
+        if original_status in [OrderStatus.PENDING, OrderStatus.CONFIRMED]:
+            for item in order.items.all():
+                product = item.product
+                product.stock_quantity += item.quantity
+                product.save()
+        
         return Response({'message': 'Order cancelled successfully'})
     
     @action(detail=True, methods=['post'])
@@ -200,6 +219,29 @@ class OrderViewSet(viewsets.ModelViewSet):
         
         order.update_status(new_status)
         return Response({'message': f'Order status updated to {new_status}'})
+    
+    @action(detail=True, methods=['post'])
+    def return_order(self, request, pk=None, **kwargs):
+        """Return a delivered order"""
+        order = self.get_object()
+        
+        # Only delivered orders can be returned
+        if order.status != OrderStatus.DELIVERED:
+            return Response(
+                {'error': 'Only delivered orders can be returned'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update order status to returned
+        order.update_status(OrderStatus.RETURNED)
+        
+        # Restore inventory for returned orders
+        for item in order.items.all():
+            product = item.product
+            product.stock_quantity += item.quantity
+            product.save()
+        
+        return Response({'message': 'Order returned successfully'})
     
     @action(detail=False, methods=['get'])
     def history(self, request):

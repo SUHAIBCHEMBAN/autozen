@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions
 from django.utils import timezone
 from django.db import models
 from .models import (
@@ -25,6 +25,8 @@ class LandingPageContentView(APIView):
     for optimal performance. It uses utility functions that implement Redis
     caching to reduce database queries.
     """
+    # Allow unauthenticated access to landing page
+    permission_classes = [permissions.AllowAny]
     
     def get(self, request):
         """
@@ -66,6 +68,8 @@ class HeroBannerListView(APIView):
     Provides a list of active hero banners with optimized caching
     to reduce database queries for frequently accessed content.
     """
+    # Allow unauthenticated access
+    permission_classes = [permissions.AllowAny]
     
     def get(self, request):
         """
@@ -89,6 +93,8 @@ class CategorySectionListView(APIView):
     Provides a list of active category sections with related category data
     and optimized caching for improved performance.
     """
+    # Allow unauthenticated access
+    permission_classes = [permissions.AllowAny]
     
     def get(self, request):
         """
@@ -113,6 +119,8 @@ class NewArrivalsListView(APIView):
     Provides a list of newest products with optimized caching
     to reduce database queries for frequently accessed content.
     """
+    # Allow unauthenticated access
+    permission_classes = [permissions.AllowAny]
     
     def get(self, request):
         """
@@ -136,6 +144,8 @@ class AdvertisementBannerListView(APIView):
     Provides a list of active advertisement banners with scheduled publishing
     and optimized caching for improved performance.
     """
+    # Allow unauthenticated access
+    permission_classes = [permissions.AllowAny]
     
     def get(self, request):
         """
@@ -160,6 +170,8 @@ class TestimonialListView(APIView):
     Provides a list of featured testimonials with optimized caching
     to reduce database queries for frequently accessed content.
     """
+    # Allow unauthenticated access
+    permission_classes = [permissions.AllowAny]
     
     def get(self, request):
         """
@@ -184,6 +196,8 @@ class FeaturedBrandsListView(APIView):
     Provides a list of featured brands with optimized caching
     to reduce database queries for frequently accessed content.
     """
+    # Allow unauthenticated access
+    permission_classes = [permissions.AllowAny]
     
     def get(self, request):
         """

@@ -23,10 +23,6 @@ function OrderConfirmation() {
       const data = await getOrderByNumber(orderNumber)
       setOrder(data)
     } catch (err) {
-      if (err.message.includes('401') || err.message.includes('Authentication')) {
-        navigate('/login', { replace: true })
-        return
-      }
       setError(err.message || 'Failed to load order details')
     } finally {
       setLoading(false)
@@ -237,5 +233,3 @@ function OrderConfirmation() {
 }
 
 export default OrderConfirmation
-
-

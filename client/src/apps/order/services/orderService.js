@@ -165,6 +165,22 @@ export const trackOrder = async (orderNumber, email = null) => {
   }
 }
 
+export const returnOrder = async (orderNumber) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${orderNumber}/return_order/`, getFetchOptions('POST'))
+    
+    const data = await response.json()
+    
+    if (!response.ok) {
+      throw new Error(data.detail || data.error || 'Failed to return order')
+    }
+    
+    return data
+  } catch (error) {
+    throw new Error(error.message || 'Network error. Please try again.')
+  }
+}
+
 export const cancelOrder = async (orderNumber) => {
   try {
     const response = await fetch(`${API_BASE_URL}/orders/${orderNumber}/cancel/`, getFetchOptions('POST'))

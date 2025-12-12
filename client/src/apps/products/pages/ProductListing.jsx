@@ -21,6 +21,12 @@ function ProductListing() {
     ordering: searchParams.get('ordering') || null,
   })
 
+  // Update searchQuery when URL changes
+  useEffect(() => {
+    const query = searchParams.get('q') || ''
+    setSearchQuery(query)
+  }, [searchParams])
+
   useEffect(() => {
     loadProducts()
   }, [filters, searchQuery])

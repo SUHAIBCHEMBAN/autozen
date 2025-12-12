@@ -5,6 +5,13 @@ import { addToCart } from '../../cart/services/cartService'
 import { addToWishlist, removeFromWishlist, isInWishlist } from '../../wishlist/services/wishlistService'
 import './ProductDetail.css'
 
+// Simple function to check if user is authenticated
+const isAuthenticated = () => {
+  const token = sessionStorage.getItem('authToken')
+  const user = sessionStorage.getItem('user')
+  return !!token && !!user
+}
+
 function ProductDetail() {
   const { slug } = useParams()
   const navigate = useNavigate()
@@ -62,22 +69,32 @@ function ProductDetail() {
   }
 
   const handleAddToCart = async () => {
+    // Check if user is authenticated
+    if (!isAuthenticated()) {
+      // Navigate to auth modal instead of login page
+      navigate('/auth-modal')
+      return
+    }
+    
     try {
       setCartLoading(true)
       await addToCart(product.id, quantity)
       alert('Product added to cart!')
     } catch (err) {
-      if (err.message.includes('401') || err.message.includes('Authentication')) {
-        navigate('/login', { state: { returnTo: `/products/${slug}` } })
-      } else {
-        alert(err.message || 'Failed to add to cart')
-      }
+      alert(err.message || 'Failed to add to cart')
     } finally {
       setCartLoading(false)
     }
   }
 
   const handleAddToWishlist = async () => {
+    // Check if user is authenticated
+    if (!isAuthenticated()) {
+      // Navigate to auth modal instead of login page
+      navigate('/auth-modal')
+      return
+    }
+    
     try {
       setWishlistLoading(true)
       if (isWishlisted) {
@@ -90,11 +107,7 @@ function ProductDetail() {
         alert('Product added to wishlist!')
       }
     } catch (err) {
-      if (err.message.includes('401') || err.message.includes('Authentication')) {
-        navigate('/login', { state: { returnTo: `/products/${slug}` } })
-      } else {
-        alert(err.message || 'Failed to update wishlist')
-      }
+      alert(err.message || 'Failed to update wishlist')
     } finally {
       setWishlistLoading(false)
     }
@@ -342,4 +355,3 @@ function ProductDetail() {
 }
 
 export default ProductDetail
-

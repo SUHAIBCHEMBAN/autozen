@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import './Profile.css'
 import { getUserProfile, updateUserProfile, getUserOrders, getUserWishlist, getUserAddresses, createUserAddress, updateUserAddress, deleteUserAddress } from '../services/authService'
+import { cancelOrder } from '../../order/services/orderService'
 import { UserIcon, PackageIcon, HeartIcon, LocationIcon, SettingsIcon } from '../../../common/components/Icons'
 import ProfileSection from '../components/ProfileSection'
-import OrdersSection from '../components/OrdersSection'
+import ProfileOrdersSection from '../components/ProfileOrdersSection'
 import WishlistSection from '../components/WishlistSection'
 import AddressesSection from '../components/AddressesSection'
 import SettingsSection from '../components/SettingsSection'
@@ -62,8 +63,9 @@ function Profile() {
     const userData = sessionStorage.getItem('user')
     
     if (!userData) {
-      // If no user data, redirect to login
-      navigate('/login', { replace: true })
+      // Reset user state if no data
+      setUser(null)
+      setLoading(false)
       return
     }
 
@@ -77,7 +79,7 @@ function Profile() {
         profile: parsedUser.profile || '',
       })
     } catch (err) {
-      navigate('/login', { replace: true })
+      setUser(null)
     } finally {
       setLoading(false)
     }
@@ -203,6 +205,42 @@ function Profile() {
       setOrdersError(err.message || 'Failed to load orders')
     } finally {
       setOrdersLoading(false)
+    }
+  }
+
+  const handleCancelOrder = async (orderNumber, action = 'cancel') => {
+    const confirmMessage = action === 'return' 
+      ? 'Are you sure you want to return this order?' 
+      : 'Are you sure you want to cancel this order?'
+    
+    if (!window.confirm(confirmMessage)) {
+      return
+    }
+    
+    try {
+      // For return action, we need to call a different endpoint
+      if (action === 'return') {
+        const response = await fetch(`http://localhost:8000/api/orders/orders/${orderNumber}/return_order/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+          }
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to return order')
+        }
+      } else {
+        await cancelOrder(orderNumber)
+      }
+      
+      // Refresh orders after cancellation/return
+      await fetchUserOrders()
+      setSuccess(action === 'return' ? 'Order returned successfully!' : 'Order cancelled successfully!')
+    } catch (err) {
+      setError(err.message || `Failed to ${action} order. Please try again.`)
     }
   }
 
@@ -388,7 +426,16 @@ function Profile() {
   }
 
   if (!user) {
-    return null
+    return (
+      <div className="profile-page">
+        <div className="profile-container">
+          <div className="empty-state">
+            <p>User data not available. Please try logging in again.</p>
+            <Link to="/login" className="btn primary">Login</Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const tabs = [
@@ -480,11 +527,12 @@ function Profile() {
           )}
 
           {activeTab === 'orders' && (
-            <OrdersSection
+            <ProfileOrdersSection
               orders={orders}
               ordersLoading={ordersLoading}
               ordersError={ordersError}
               fetchUserOrders={fetchUserOrders}
+              onCancelOrder={handleCancelOrder}
             />
           )}
 

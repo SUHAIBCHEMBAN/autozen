@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { PackageIcon } from '../../../common/components/Icons'
 
-function OrdersSection({ orders, ordersLoading, ordersError, fetchUserOrders }) {
+function ProfileOrdersSection({ orders, ordersLoading, ordersError, fetchUserOrders, onCancelOrder }) {
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -111,6 +111,28 @@ function OrdersSection({ orders, ordersLoading, ordersError, fetchUserOrders }) 
                 >
                   View Invoice
                 </button>
+                {/* Show cancel button only for orders that can be cancelled */}
+                {order.can_be_cancelled && (
+                  <button 
+                    onClick={() => {
+                      onCancelOrder(order.order_number)
+                    }} 
+                    className="btn-cancel"
+                  >
+                    Cancel Order
+                  </button>
+                )}
+                {/* Show return button only for delivered orders */}
+                {order.can_be_returned && (
+                  <button 
+                    onClick={() => {
+                      onCancelOrder(order.order_number, 'return') // Pass 'return' action
+                    }} 
+                    className="btn-return"
+                  >
+                    Return Order
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -126,4 +148,4 @@ function OrdersSection({ orders, ordersLoading, ordersError, fetchUserOrders }) 
   )
 }
 
-export default OrdersSection
+export default ProfileOrdersSection

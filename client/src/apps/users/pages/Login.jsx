@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { sendOTP } from '../services/authService'
 import './Login.css'
@@ -8,6 +8,17 @@ function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    const token = sessionStorage.getItem('authToken')
+    const user = sessionStorage.getItem('user')
+    
+    // If user is already authenticated, redirect them to profile or home
+    if (token && user) {
+      navigate('/profile', { replace: true })
+    }
+  }, [navigate])
 
   const validateInput = (value) => {
     // Basic email validation
@@ -62,7 +73,7 @@ function Login() {
     <div className="auth-page">
       <div className="auth-container">
         <div className="auth-header">
-          <h1>Welcome Back</h1>
+          <h1>Welcome To AutoZen</h1>
           <p>Enter your email or phone number to receive a login code</p>
         </div>
 
@@ -120,7 +131,7 @@ function Login() {
 
         <div className="auth-footer">
           <p>
-            Don't have an account? <Link to="/signup">Sign up</Link>
+            {/* Don't have an account? <Link to="/signup">Sign up</Link> */}
           </p>
         </div>
       </div>
@@ -129,4 +140,3 @@ function Login() {
 }
 
 export default Login
-

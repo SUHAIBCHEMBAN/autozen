@@ -112,10 +112,6 @@ function Checkout() {
         console.error('Failed to load saved addresses:', err)
       }
     } catch (err) {
-      if (err.message.includes('401') || err.message.includes('Authentication')) {
-        navigate('/login', { state: { from: '/checkout' } })
-        return
-      }
       setError(err.message || 'Failed to load checkout data')
     } finally {
       setLoading(false)

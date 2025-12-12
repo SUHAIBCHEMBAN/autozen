@@ -97,13 +97,13 @@ function Footer() {
             <span className="brand-accent">Zen</span>
           </div>
           <p>
-            Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a
-            galley of type and scrambled it to make a type specimen book.
+            AutoZen is your trusted destination for high-quality auto spares, performance parts, and premium vehicle accessories. We’re committed to delivering genuine products that enhance safety, style, and driving comfort.
           </p>
+
           <p>
-            Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a
-            galley of type and scrambled it to make a type specimen book.
+            From essential replacements to advanced upgrades, AutoZen brings a smooth and reliable shopping experience with fast delivery, secure payments, and dedicated customer support — all tailored for automotive enthusiasts.
           </p>
+
 
           <div className="store-badges">
             <a className="badge" href="#">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { getOrderHistory, cancelOrder, downloadInvoice } from '../services/orderService'
+import { getOrderHistory, cancelOrder, downloadInvoice, returnOrder } from '../services/orderService'
 import './OrderHistory.css'
 
 function OrderHistory() {
@@ -33,7 +33,8 @@ function OrderHistory() {
 
     try {
       setCancellingId(orderId)
-      await cancelOrder(orderId) // Using ID for endpoint which usually expects ID
+      // Use orderNumber instead of orderId for cancellation
+      await cancelOrder(orderNumber)
       // Refresh list
       await fetchOrders()
       alert(`Order ${orderNumber} cancelled successfully`)
@@ -175,6 +176,16 @@ function OrderHistory() {
                       {cancellingId === order.id ? 'Cancelling...' : 'Cancel Order'}
                     </button>
                   )}
+                  {/* Show return button only for delivered orders */}
+                  {order.can_be_returned && (
+                    <button 
+                      onClick={() => handleReturn(order.order_number)} 
+                      className="btn-return"
+                      disabled={cancellingId === order.order_number}
+                    >
+                      {cancellingId === order.order_number ? 'Processing...' : 'Return Order'}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -184,5 +195,25 @@ function OrderHistory() {
     </div>
   )
 }
+
+const handleReturn = async (orderNumber) => {
+    if (!window.confirm('Are you sure you want to return this order?')) {
+      return
+    }
+
+    try {
+      setCancellingId(orderNumber)
+      // Call the return endpoint through the service
+      await returnOrder(orderNumber)
+      
+      // Refresh list
+      await fetchOrders()
+      alert(`Order ${orderNumber} returned successfully`)
+    } catch (err) {
+      alert(err.message || 'Failed to return order')
+    } finally {
+      setCancellingId(null)
+    }
+  }
 
 export default OrderHistory

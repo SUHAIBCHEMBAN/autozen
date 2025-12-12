@@ -23,11 +23,6 @@ function Wishlist() {
       const data = await getWishlist()
       setWishlist(data)
     } catch (err) {
-      // Check if user is not authenticated
-      if (err.message.includes('401') || err.message.includes('Authentication')) {
-        navigate('/login', { replace: true })
-        return
-      }
       setError(err.message || 'Failed to load wishlist')
     } finally {
       setLoading(false)
@@ -155,4 +150,3 @@ function Wishlist() {
 }
 
 export default Wishlist
-

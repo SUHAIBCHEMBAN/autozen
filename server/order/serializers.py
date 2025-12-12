@@ -45,6 +45,7 @@ class OrderSerializer(serializers.ModelSerializer):
     status_logs = OrderStatusLogSerializer(many=True, read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
     can_be_cancelled = serializers.BooleanField(read_only=True)
+    can_be_returned = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = Order
@@ -59,11 +60,11 @@ class OrderSerializer(serializers.ModelSerializer):
             'subtotal', 'tax_amount', 'shipping_cost', 'discount_amount', 'total_amount',
             'notes', 'internal_notes',
             'created_at', 'updated_at', 'shipped_at', 'delivered_at',
-            'items', 'status_logs', 'can_be_cancelled'
+            'items', 'status_logs', 'can_be_cancelled', 'can_be_returned'
         ]
         read_only_fields = [
             'order_number', 'user', 'user_email', 'created_at', 'updated_at',
-            'shipped_at', 'delivered_at', 'can_be_cancelled'
+            'shipped_at', 'delivered_at', 'can_be_cancelled', 'can_be_returned'
         ]
     
     def get_items(self, obj):

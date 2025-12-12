@@ -1,19 +1,54 @@
 from django.contrib import admin
 from .models import (
     HeroBanner, CategorySection, AdvertisementBanner, 
-    Testimonial, LandingPageConfiguration
+    Testimonial, LandingPageConfiguration, FeaturedVehicle
 )
+
+class FeaturedVehicleInline(admin.TabularInline):
+    model = FeaturedVehicle
+    extra = 3
+    fields = ['name', 'image', 'hover_title', 'hover_description', 'link', 'order', 'is_active']
 
 
 @admin.register(HeroBanner)
 class HeroBannerAdmin(admin.ModelAdmin):
-    """Admin for hero banners"""
-    list_display = ['title', 'is_active', 'order', 'created_at']
-    list_filter = ['is_active', 'created_at', 'updated_at']
-    search_fields = ['title', 'subtitle']
-    list_editable = ['order', 'is_active']
-    readonly_fields = ['created_at', 'updated_at']
+    list_display = ['title', 'subtitle', 'is_active', 'order', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['title', 'subtitle', 'description']
     ordering = ['order', '-created_at']
+    inlines = [FeaturedVehicleInline]
+    
+    fieldsets = (
+        ('Banner Content', {
+            'fields': ('title', 'subtitle', 'description', 'image')
+        }),
+        ('Call to Action', {
+            'fields': ('button_text', 'button_link')
+        }),
+        ('Settings', {
+            'fields': ('is_active', 'order')
+        }),
+    )
+
+@admin.register(FeaturedVehicle)
+class FeaturedVehicleAdmin(admin.ModelAdmin):
+    list_display = ['name', 'hero_banner', 'hover_title', 'is_active', 'order', 'created_at']
+    list_filter = ['is_active', 'hero_banner', 'created_at']
+    search_fields = ['name', 'hover_title', 'hover_description']
+    ordering = ['order', '-created_at']
+    
+    fieldsets = (
+        ('Vehicle Information', {
+            'fields': ('hero_banner', 'name', 'image', 'link')
+        }),
+        ('Hover Content', {
+            'fields': ('hover_title', 'hover_description'),
+            'description': 'Content shown when user hovers over the vehicle card'
+        }),
+        ('Settings', {
+            'fields': ('is_active', 'order')
+        }),
+    )    
 
 
 @admin.register(CategorySection)

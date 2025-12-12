@@ -1,6 +1,9 @@
 import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import Navbar from './common/components/Navbar'
 import Footer from './common/components/Footer'
+import ProtectedRoute from './common/components/ProtectedRoute'
+import AuthModal from './common/components/AuthModal'
+import { useState, useEffect } from 'react'
 import './App.css'
 import {
   AboutPage,
@@ -14,40 +17,50 @@ import { ProductListing, ProductDetail } from './apps/products/pages'
 import { Cart } from './apps/cart/pages'
 import { Wishlist } from './apps/wishlist/pages'
 import { Checkout, OrderConfirmation, OrderTracking, OrderHistory } from './apps/order/pages'
+import LandingPage from './apps/landing/pages/LandingPage'
 
-function HomePage() {
-  return (
-    <main className="page-content">
-      <section className="hero">
-        <div className="hero-text">
-          <p className="eyebrow">Premium aftermarket parts</p>
-          <h1>Everything your vehicle needs, in one place.</h1>
-          <p className="subtext">
-            Browse interior, exterior, electrical, and performance parts tailored to your vehicle. Smooth ordering, easy
-            returns, and tracked delivery.
-          </p>
-          <div className="hero-actions">
-            <Link to="/products" className="btn primary">Shop now</Link>
-            <Link to="/products" className="btn ghost">Explore categories</Link>
-          </div>
-        </div>
-        <div className="hero-card">
-          <div className="hero-card__badge">New</div>
-          <h3>Featured: Seltos LED Headlamps</h3>
-          <p>Plug-and-play kits with CANBUS support and 1-year warranty.</p>
-          <div className="pill-group">
-            <span className="pill">Easy install</span>
-            <span className="pill">Free shipping</span>
-            <span className="pill">Cash on delivery</span>
-          </div>
-        </div>
-      </section>
-    </main>
-  )
+// Simple component to check if user is authenticated
+const isAuthenticated = () => {
+  const token = sessionStorage.getItem('authToken')
+  const user = sessionStorage.getItem('user')
+  return !!token && !!user
 }
 
-function PageShell({ children }) {
-  return <section className="page-stack">{children}</section>
+// Component that conditionally renders protected content or redirects
+function ConditionalRedirect({ children, redirectTo }) {
+  return isAuthenticated() ? children : <Navigate to={redirectTo} replace />
+}
+
+// Component to show auth modal on current page
+function AuthModalPage() {
+  const [isModalOpen, setIsModalOpen] = useState(true)
+  
+  // If user becomes authenticated while modal is open, redirect to home
+  useEffect(() => {
+    if (isAuthenticated()) {
+      window.location.href = '/'
+    }
+  }, [])
+  
+  const closeModal = () => {
+    setIsModalOpen(false)
+  }
+  
+  if (!isModalOpen) {
+    // Go back to previous page when modal is closed
+    window.history.back()
+    return null
+  }
+  
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <AuthModal 
+        isOpen={isModalOpen} 
+        onClose={closeModal} 
+        message="You need to be logged in to access this page. Please login to continue."
+      />
+    </div>
+  )
 }
 
 function App() {
@@ -56,58 +69,122 @@ function App() {
       <Navbar />
 
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<LandingPage />} />
         <Route
           path="/about"
           element={
-            <PageShell>
+            <section className="page-stack">
               <AboutPage />
-            </PageShell>
+            </section>
           }
         />
         <Route
           path="/privacy-policy"
           element={
-            <PageShell>
+            <section className="page-stack">
               <PrivacyPolicyPage />
-            </PageShell>
+            </section>
           }
         />
         <Route
           path="/return-refund-safety"
           element={
-            <PageShell>
+            <section className="page-stack">
               <ReturnRefundSafetyPage />
-            </PageShell>
+            </section>
           }
         />
         <Route
           path="/terms-conditions"
           element={
-            <PageShell>
+            <section className="page-stack">
               <TermsConditionsPage />
-            </PageShell>
+            </section>
           }
         />
         <Route
           path="/faqs"
           element={
-            <PageShell>
+            <section className="page-stack">
               <FaqsPage />
-            </PageShell>
+            </section>
           }
         />
         <Route path="/login" element={<Login />} />
         <Route path="/verify-otp" element={<VerifyOTP />} />
-        <Route path="/profile" element={<Profile />} />
+        <Route path="/auth-modal" element={<AuthModalPage />} />
+        <Route 
+          path="/profile" 
+          element={
+            <ConditionalRedirect redirectTo="/auth-modal">
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            </ConditionalRedirect>
+          } 
+        />
         <Route path="/products" element={<ProductListing />} />
         <Route path="/products/:slug" element={<ProductDetail />} />
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/wishlist" element={<Wishlist />} />
-        <Route path="/checkout" element={<Checkout />} />
-        <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmation />} />
-        <Route path="/track" element={<OrderTracking />} />
-        <Route path="/orders" element={<OrderHistory />} />
+        <Route 
+          path="/cart" 
+          element={
+            <ConditionalRedirect redirectTo="/auth-modal">
+              <ProtectedRoute>
+                <Cart />
+              </ProtectedRoute>
+            </ConditionalRedirect>
+          } 
+        />
+        <Route 
+          path="/wishlist" 
+          element={
+            <ConditionalRedirect redirectTo="/auth-modal">
+              <ProtectedRoute>
+                <Wishlist />
+              </ProtectedRoute>
+            </ConditionalRedirect>
+          } 
+        />
+        <Route 
+          path="/checkout" 
+          element={
+            <ConditionalRedirect redirectTo="/auth-modal">
+              <ProtectedRoute>
+                <Checkout />
+              </ProtectedRoute>
+            </ConditionalRedirect>
+          } 
+        />
+        <Route 
+          path="/order-confirmation/:orderNumber" 
+          element={
+            <ConditionalRedirect redirectTo="/auth-modal">
+              <ProtectedRoute>
+                <OrderConfirmation />
+              </ProtectedRoute>
+            </ConditionalRedirect>
+          } 
+        />
+        <Route 
+          path="/track" 
+          element={
+            <ConditionalRedirect redirectTo="/auth-modal">
+              <ProtectedRoute>
+                <OrderTracking />
+              </ProtectedRoute>
+            </ConditionalRedirect>
+          } 
+        />
+        <Route 
+          path="/orders" 
+          element={
+            <ConditionalRedirect redirectTo="/auth-modal">
+              <ProtectedRoute>
+                <OrderHistory />
+              </ProtectedRoute>
+            </ConditionalRedirect>
+          } 
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

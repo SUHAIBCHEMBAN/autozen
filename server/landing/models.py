@@ -64,6 +64,43 @@ class HeroBanner(models.Model):
         return self.title
 
 
+class FeaturedVehicle(models.Model):
+    """
+    Represents featured vehicles displayed as cards in the hero section
+    """
+    name = models.CharField(max_length=200)
+    image = models.ImageField(upload_to='landing/featured_vehicles/')
+    hover_title = models.CharField(max_length=200, blank=True, help_text="Title shown on hover")
+    hover_description = models.TextField(blank=True, help_text="Description shown on hover")
+    link = models.URLField(blank=True, help_text="Link when card is clicked")
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+    hero_banner = models.ForeignKey(
+        HeroBanner, 
+        on_delete=models.CASCADE, 
+        related_name='featured_vehicles',
+        help_text="Hero banner this vehicle belongs to"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'landing_featured_vehicles'
+        verbose_name = 'Featured Vehicle'
+        verbose_name_plural = 'Featured Vehicles'
+        ordering = ['order', '-created_at']
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        HeroBanner.invalidate_cache()
+    
+    def delete(self, *args, **kwargs):
+        super().delete(*args, **kwargs)
+        HeroBanner.invalidate_cache()
+    
+    def __str__(self):
+        return f"{self.name} - {self.hero_banner.title}"
+
 class CategorySection(models.Model):
     """
     Represents a category section with image or icon

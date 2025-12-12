@@ -22,7 +22,7 @@ def get_landing_page_content():
     Returns:
         dict: Dictionary containing all landing page content including:
             - configuration: LandingPageConfiguration object
-            - hero_banners: QuerySet of active HeroBanner objects
+            - hero_banners: QuerySet of active HeroBanner objects with prefetched featured vehicles
             - categories: QuerySet of active CategorySection objects
             - featured_products: QuerySet of featured Product objects
             - advertisements: QuerySet of active AdvertisementBanner objects
@@ -47,8 +47,8 @@ def get_landing_page_content():
         # Get landing page configuration
         configuration = LandingPageConfiguration.get_config()
         
-        # Get active hero banners
-        hero_banners = HeroBanner.objects.filter(is_active=True)
+        # Get active hero banners with prefetched featured vehicles
+        hero_banners = HeroBanner.objects.filter(is_active=True).prefetch_related('featured_vehicles')
         
         # Get active category sections
         categories = CategorySection.objects.filter(is_active=True).select_related('category')
@@ -98,6 +98,7 @@ def get_active_hero_banners():
     
     Returns:
         QuerySet: Active HeroBanner objects ordered by display order and creation date
+                 with prefetched featured vehicles
     """
     cache_key = 'active_hero_banners'
     cached_banners = cache.get(cache_key)
@@ -107,7 +108,7 @@ def get_active_hero_banners():
     
     # Import model inside function to avoid circular imports
     from .models import HeroBanner
-    banners = HeroBanner.objects.filter(is_active=True).order_by('order', '-created_at')
+    banners = HeroBanner.objects.filter(is_active=True).prefetch_related('featured_vehicles').order_by('order', '-created_at')
     cache.set(cache_key, banners, LANDING_CONTENT_CACHE_TIMEOUT)
     return banners
 
@@ -244,51 +245,4 @@ def create_default_landing_configuration():
             'meta_description': 'Your trusted partner for automotive spare parts and accessories'
         }
     )
-    return config
-
-
-def initialize_landing_page():
-    """
-    Initialize landing page with default content.
-    
-    Creates default configuration and sample content if none exists.
-    
-    Returns:
-        LandingPageConfiguration: The configuration object
-    """
-    # Create default configuration
-    config = create_default_landing_configuration()
-    
-    # Import models inside function to avoid circular imports
-    from .models import HeroBanner, CategorySection
-    from products.models import PartCategory
-    
-    # Create sample hero banners if none exist
-    if not HeroBanner.objects.exists():
-        HeroBanner.objects.create(
-            title="Premium Automotive Parts",
-            subtitle="Quality spare parts for all vehicle models",
-            description="Discover our extensive collection of genuine and aftermarket parts",
-            button_text="Shop Now",
-            order=1
-        )
-        
-        HeroBanner.objects.create(
-            title="Fast Delivery Nationwide",
-            subtitle="Get your parts delivered to your doorstep",
-            description="Free shipping on orders over $100",
-            button_text="Learn More",
-            order=2
-        )
-    
-    # Create sample category sections if none exist
-    if not CategorySection.objects.exists() and PartCategory.objects.exists():
-        categories = PartCategory.objects.filter(is_active=True)[:6]
-        for i, category in enumerate(categories):
-            CategorySection.objects.create(
-                title=category.name,
-                category=category,
-                order=i+1
-            )
-    
     return config
