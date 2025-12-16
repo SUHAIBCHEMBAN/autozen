@@ -55,12 +55,17 @@ class FeaturedVehicleAdmin(admin.ModelAdmin):
 class CategorySectionAdmin(admin.ModelAdmin):
     """Admin for category sections"""
     list_display = ['title', 'category', 'is_active', 'order', 'created_at']
-    list_filter = ['is_active', 'category', 'created_at']
+    list_filter = ['is_active', 'created_at']
     search_fields = ['title', 'category__name']
     list_editable = ['order', 'is_active']
     prepopulated_fields = {'slug': ('title',)}
     readonly_fields = ['created_at', 'updated_at']
     ordering = ['order', '-created_at']
+    list_select_related = ['category']  # Optimize foreign key lookups
+    
+    def get_queryset(self, request):
+        # Optimize queryset to reduce database queries
+        return super().get_queryset(request).select_related('category')
 
 
 @admin.register(AdvertisementBanner)

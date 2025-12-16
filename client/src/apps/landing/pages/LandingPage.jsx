@@ -22,13 +22,27 @@ function LandingPage() {
       setLoading(true)
       setError('')
       const data = await getLandingPageContent()
+      console.log('Landing page content received:', data);
       setContent(data)
     } catch (err) {
+      console.error('Error loading landing page content:', err);
       setError(err.message || 'Failed to load landing page content')
     } finally {
       setLoading(false)
     }
   }
+
+  // Add a timeout to prevent infinite loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        setError('Loading took too long. Please try again.')
+        setLoading(false)
+      }
+    }, 15000) // 15 second timeout
+
+    return () => clearTimeout(timer)
+  }, [loading])
 
   if (loading) {
     return (
@@ -64,14 +78,15 @@ function LandingPage() {
     )
   }
 
+  // Safely render components with fallbacks
   return (
     <div className="landing-page">
-      <HeroCarousel banners={content.hero_banners} />
-      <CategoriesSection categories={content.categories} />
-      <FeaturedProductsSection products={content.featured_products} />
-      <AdvertisementsSection advertisements={content.advertisements} />
-      <TestimonialsSection testimonials={content.testimonials} />
-      <BrandsSection brands={content.featured_brands} />
+      {content.hero_banners && <HeroCarousel banners={content.hero_banners} />}
+      {content.categories && <CategoriesSection categories={content.categories} />}
+      {content.featured_products && <FeaturedProductsSection products={content.featured_products} />}
+      {content.advertisements && <AdvertisementsSection advertisements={content.advertisements} />}
+      {content.testimonials && <TestimonialsSection testimonials={content.testimonials} />}
+      {content.featured_brands && <BrandsSection brands={content.featured_brands} />}
     </div>
   )
 }

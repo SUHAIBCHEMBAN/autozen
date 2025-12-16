@@ -416,20 +416,22 @@ def invalidate_category_cache(category_id, parent_id=None):
         get_category_list_cache_key(),
     ]
     
+    # Always invalidate both parent-specific and general category lists
+    cache_keys.append(get_category_list_cache_key(None))
+    
     try:
         category = PartCategory.objects.get(id=category_id)
         cache_keys.append(get_cache_key(CATEGORY_PREFIX, f"slug_{category.slug}"))
-        if parent_id or category.parent_id:
-            parent_id = parent_id or category.parent_id
-            cache_keys.append(get_category_list_cache_key(parent_id))
-        if parent_id is None:
-            cache_keys.append(get_category_list_cache_key(None))
+        # Invalidate cache for this category's parent if it exists
+        if category.parent_id:
+            cache_keys.append(get_category_list_cache_key(category.parent_id))
+        # Also invalidate cache for subcategories of this category
+        cache_keys.append(get_category_list_cache_key(category_id))
     except PartCategory.DoesNotExist:
         # If category doesn't exist, we still want to invalidate lists
         if parent_id is not None:
             cache_keys.append(get_category_list_cache_key(parent_id))
-        else:
-            cache_keys.append(get_category_list_cache_key(None))
+        cache_keys.append(get_category_list_cache_key(None))
     
     cache.delete_many(cache_keys)
     logger.info(f"Invalidated cache for category {category_id}")

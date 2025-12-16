@@ -29,6 +29,7 @@ class HeroBannerSerializer(serializers.ModelSerializer):
 
 class CategorySectionSerializer(serializers.ModelSerializer):
     """Serializer for category sections with caching support"""
+    # Include the full category object with parent information
     category = PartCategorySerializer(read_only=True)
     
     class Meta:

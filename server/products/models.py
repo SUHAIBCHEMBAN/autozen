@@ -152,6 +152,11 @@ class PartCategory(models.Model):
         verbose_name_plural = 'Part Categories'
         ordering = ['name']
         unique_together = ['parent', 'name']
+        indexes = [
+            models.Index(fields=['parent']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['parent', 'is_active']),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -236,7 +241,10 @@ class PartCategory(models.Model):
         return path
 
     def __str__(self):
-        return self.get_full_path() if self.parent else self.name
+        # Use cached full path to avoid recursive database queries
+        if self.parent:
+            return self.get_full_path()
+        return self.name
 
 
 class Product(models.Model):
@@ -271,6 +279,11 @@ class Product(models.Model):
         verbose_name = 'Product'
         verbose_name_plural = 'Products'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['part_category']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['part_category', 'is_active']),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.slug:

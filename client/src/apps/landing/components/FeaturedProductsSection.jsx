@@ -1,6 +1,11 @@
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import './FeaturedProductsSection.css'
 
 const FeaturedProductsSection = ({ products }) => {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const intervalRef = useRef(null)
+
   // Helper function to get image URL
   const getImageUrl = (image) => {
     if (!image) return '/placeholder-product.png'
@@ -24,43 +29,145 @@ const FeaturedProductsSection = ({ products }) => {
     return `http://localhost:8000${image}`
   }
 
+  // Auto-slide functionality - sliding left to right with longer interval
+  useEffect(() => {
+    if (!products || products.length <= 3) return
+    
+    intervalRef.current = setInterval(() => {
+      setCurrentIndex(prevIndex => {
+        // Move to next index (sliding left to right)
+        if (prevIndex >= products.length - 3) {
+          return 0 // Reset to beginning
+        }
+        return prevIndex + 1
+      })
+    }, 5000) // Slide every 5 seconds (increased from 3 seconds)
+    
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [products])
+
   if (!products || products.length === 0) {
-    return null
+    return (
+      <section className="featured-products-section">
+        <div className="container">
+          <div className="section-header">
+            <h2 className="section-title no-underline">Featured Products</h2>
+          </div>
+          <p>No featured products available</p>
+        </div>
+      </section>
+    )
   }
 
   return (
     <section className="featured-products-section">
       <div className="container">
         <div className="section-header">
-          <h2 className="section-title">Featured Products</h2>
-          <Link to="/products" className="btn btn-secondary">
-            View All Products
-          </Link>
+          <h2 className="section-title no-underline">Featured Products</h2>
         </div>
-        <div className="products-grid">
-          {products.map((product) => (
-            <div key={product.id} className="product-card">
-              <Link to={`/products/${product.slug}`} className="product-link">
-                <div className="product-image">
-                  {product.featured_image ? (
-                    <img 
-                      src={getImageUrl(product.featured_image)} 
-                      alt={product.name}
-                      onError={(e) => { e.target.src = '/placeholder-product.png' }}
-                    />
-                  ) : (
-                    <div className="product-placeholder">
-                      <span>No Image</span>
+        
+        <div className="products-carousel-wrapper">
+          {/* Products carousel */}
+          <div className="products-carousel">
+            <div 
+              className="products-carousel-track"
+              style={{
+                transform: `translateX(-${currentIndex * 33.333}%)`,
+                transition: 'transform 0.5s ease-in-out'
+              }}
+            >
+              {products.map((product, index) => {
+                const {
+                  id,
+                  name,
+                  slug,
+                  short_description,
+                  featured_image,
+                  price,
+                  compare_price,
+                  amount_saved,
+                  discount_percentage,
+                  is_in_stock,
+                  brand_name,
+                  model_name,
+                  category_name
+                } = product
+
+                const imageUrl = getImageUrl(featured_image)
+
+                return (
+                  <div key={`${id}-${index}`} className="product-card-carousel-item">
+                    <div className="product-card">
+                      <Link to={`/products/${slug}`} className="product-card__link">
+                        <div className="product-card__image-wrapper">
+                          {discount_percentage > 0 && (
+                            <span className="product-card__badge">-{discount_percentage}%</span>
+                          )}
+                          {!is_in_stock && (
+                            <span className="product-card__badge product-card__badge--out-of-stock">
+                              Out of Stock
+                            </span>
+                          )}
+                          <img
+                            src={imageUrl}
+                            alt={name}
+                            className="product-card__image"
+                            loading="lazy"
+                            onError={(e) => {
+                              if (e.target.src !== '/placeholder-product.png' && !e.target.src.includes('placeholder')) {
+                                e.target.src = '/placeholder-product.png'
+                              }
+                            }}
+                          />
+                        </div>
+
+                        <div className="product-card__content">
+                          <div className="product-card__meta">
+                            {brand_name && <span className="product-card__brand">{brand_name}</span>}
+                            {model_name && <span className="product-card__model">{model_name}</span>}
+                          </div>
+
+                          <h3 className="product-card__title">{name}</h3>
+
+                          {short_description && (
+                            <p className="product-card__description">{short_description}</p>
+                          )}
+
+                          {category_name && (
+                            <span className="product-card__category">{category_name}</span>
+                          )}
+
+                          <div className="product-card__pricing">
+                            <span className="product-card__price">₹{parseFloat(price).toFixed(2)}</span>
+                            {compare_price && compare_price > price && (
+                              <>
+                                <span className="product-card__compare-price">₹{parseFloat(compare_price).toFixed(2)}</span>
+                                {amount_saved > 0 && (
+                                  <span className="product-card__savings">Save ₹{parseFloat(amount_saved).toFixed(2)}</span>
+                                )}
+                              </>
+                            )}
+                          </div>
+
+                          <div className="product-card__stock">
+                            {is_in_stock ? (
+                              <span className="product-card__stock--in">In Stock</span>
+                            ) : (
+                              <span className="product-card__stock--out">Out of Stock</span>
+                            )}
+                          </div>
+                        </div>
+                      </Link>
                     </div>
-                  )}
-                </div>
-                <div className="product-info">
-                  <h3 className="product-name">{product.name}</h3>
-                  <p className="product-price">₹{product.price}</p>
-                </div>
-              </Link>
+                  </div>
+                )
+              })}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </section>

@@ -31,26 +31,34 @@ const AdvertisementsSection = ({ advertisements }) => {
   return (
     <section className="advertisements-section">
       <div className="container">
-        <div className="ads-grid">
-          {advertisements.map((ad) => (
-            <Link 
-              key={ad.id} 
-              to={ad.link || '/products'} 
-              className="ad-card"
-            >
-              {ad.image && (
-                <img 
-                  src={getImageUrl(ad.image)} 
-                  alt={ad.title}
-                  onError={(e) => { e.target.src = '/placeholder-ad.jpg' }}
-                />
-              )}
-              <div className="ad-content">
-                <h3 className="ad-title">{ad.title}</h3>
-                {ad.subtitle && <p className="ad-subtitle">{ad.subtitle}</p>}
-              </div>
-            </Link>
-          ))}
+        <h2 className="section-title">Special Offers</h2>
+        <div className="ads-carousel">
+          <div className="ads-grid">
+            {advertisements.map((ad) => (
+              <Link 
+                key={ad.id} 
+                to={ad.link || '/products'} 
+                className="ad-card"
+              >
+                <div className="ad-image-container">
+                  {ad.image && (
+                    <img 
+                      src={getImageUrl(ad.image)} 
+                      alt={ad.title}
+                      className="ad-image"
+                      onError={(e) => { 
+                        e.target.src = '/placeholder-ad.jpg'
+                      }}
+                    />
+                  )}
+                </div>
+                <div className="ad-content">
+                  <h3 className="ad-title">{ad.title}</h3>
+                  {ad.subtitle && <p className="ad-subtitle">{ad.subtitle}</p>}
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </section>

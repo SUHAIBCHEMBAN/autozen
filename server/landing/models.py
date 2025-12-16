@@ -121,6 +121,11 @@ class CategorySection(models.Model):
         verbose_name = 'Category Section'
         verbose_name_plural = 'Category Sections'
         ordering = ['order', '-created_at']
+        indexes = [
+            models.Index(fields=['category']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['category', 'is_active']),
+        ]
     
     def save(self, *args, **kwargs):
         """

@@ -1,6 +1,11 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
 const CategoriesSection = ({ categories }) => {
+  const [parentCategories, setParentCategories] = useState([])
+  const [activeParent, setActiveParent] = useState(null)
+  const [childCategories, setChildCategories] = useState([])
+
   // Helper function to get image URL
   const getImageUrl = (image) => {
     if (!image) return '/placeholder-category.jpg'
@@ -24,47 +29,133 @@ const CategoriesSection = ({ categories }) => {
     return `http://localhost:8000${image}`
   }
 
-  if (!categories || categories.length === 0) {
-    return null
+  // Extract parent categories and set the first one as active by default
+  useEffect(() => {
+    console.log('Categories data received:', categories);
+    
+    if (categories && categories.length > 0) {
+      // Filter for parent categories (those without a parent in the PartCategory model)
+      const parents = categories.filter(cat => cat.category && cat.category.parent === null)
+      console.log('Parent categories identified:', parents);
+      setParentCategories(parents)
+      
+      // Set first parent as active by default
+      if (parents.length > 0 && !activeParent) {
+        setActiveParent(parents[0])
+        console.log('Setting first parent as active:', parents[0]);
+      }
+    } else {
+      console.log('No categories data available');
+    }
+  }, [categories])
+
+  // When active parent changes, fetch its child categories
+  useEffect(() => {
+    console.log('Active parent changed:', activeParent);
+    
+    if (activeParent && categories) {
+      // Find child categories for the active parent
+      const children = categories.filter(cat => 
+        cat.category && cat.category.parent === activeParent.category.id
+      )
+      console.log('Child categories found:', children);
+      setChildCategories(children)
+    } else {
+      setChildCategories([])
+    }
+  }, [activeParent, categories])
+
+  const handleParentClick = (parent) => {
+    console.log('Parent clicked:', parent);
+    setActiveParent(parent)
+  }
+
+  // If no categories data, show a message for debugging
+  if (!categories) {
+    return (
+      <section className="categories-section">
+        <div className="container">
+          <p>No categories data available</p>
+        </div>
+      </section>
+    )
+  }
+
+  if (categories.length === 0) {
+    return (
+      <section className="categories-section">
+        <div className="container">
+          <p>No categories found</p>
+        </div>
+      </section>
+    )
   }
 
   return (
     <section className="categories-section">
       <div className="container">
-        <h2 className="section-title">Shop by Category</h2>
-        <div className="categories-grid">
-          {categories.map((category) => (
-            <Link 
-              key={category.id} 
-              to={`/products?part_category=${category.category.id}`}
-              className="category-card"
-            >
-              {category.image ? (
-                <img 
-                  src={getImageUrl(category.image)} 
-                  alt={category.title}
-                  className="category-image"
-                  onError={(e) => { e.target.src = '/placeholder-category.jpg' }}
-                />
-              ) : category.icon ? (
-                <img 
-                  src={getImageUrl(category.icon)} 
-                  alt={category.title}
-                  className="category-icon"
-                  onError={(e) => { e.target.src = '/placeholder-icon.png' }}
-                />
-              ) : (
-                <div className="category-placeholder">
-                  <span>{category.title.charAt(0)}</span>
-                </div>
-              )}
-              <h3 className="category-title">{category.title}</h3>
-              {category.description && (
-                <p className="category-description">{category.description}</p>
-              )}
-            </Link>
-          ))}
+        {/* Debug info */}
+        <div style={{ display: 'none' }}>
+          <p>Total categories: {categories.length}</p>
+          <p>Parent categories: {parentCategories.length}</p>
+          <p>Child categories: {childCategories.length}</p>
         </div>
+        
+        {/* Parent Categories Bar with | separators */}
+        {parentCategories.length > 0 ? (
+          <div className="parent-categories-bar">
+            {parentCategories.map((parent, index) => (
+              <span key={parent.id}>
+                <button
+                  className={`parent-category ${activeParent && activeParent.id === parent.id ? 'active' : ''}`}
+                  onClick={() => handleParentClick(parent)}
+                >
+                  {parent.title}
+                </button>
+                {index < parentCategories.length - 1 && <span className="separator"> | </span>}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p>No parent categories found</p>
+        )}
+
+        {/* Child Categories Grid */}
+        {childCategories.length > 0 && (
+          <div className="child-categories-grid">
+            {childCategories.map((child) => (
+              <Link 
+                key={child.id} 
+                to={`/products?part_category=${child.category.id}`}
+                className="category-card"
+              >
+                {child.image ? (
+                  <img 
+                    src={getImageUrl(child.image)} 
+                    alt={child.title}
+                    className="category-image"
+                    onError={(e) => { e.target.src = '/placeholder-category.jpg' }}
+                  />
+                ) : child.icon ? (
+                  <img 
+                    src={getImageUrl(child.icon)} 
+                    alt={child.title}
+                    className="category-icon"
+                    onError={(e) => { e.target.src = '/placeholder-icon.png' }}
+                  />
+                ) : (
+                  <div className="category-placeholder">
+                    <span>{child.title.charAt(0)}</span>
+                  </div>
+                )}
+                <h3 className="category-title">{child.title}</h3>
+                {child.description && (
+                  <p className="category-description">{child.description}</p>
+                )}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )

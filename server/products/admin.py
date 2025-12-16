@@ -39,19 +39,51 @@ class VehicleModelAdmin(admin.ModelAdmin):
 
 @admin.register(PartCategory)
 class PartCategoryAdmin(admin.ModelAdmin):
-    list_display = ['id','name', 'parent', 'is_active', 'subcategories_count', 'products_count', 'created_at']
-    list_filter = ['is_active', 'parent', 'created_at']
+    list_display = ['id', 'name', 'parent_name', 'is_active', 'subcategories_count', 'products_count', 'created_at']
+    
+    def parent_name(self, obj):
+        # Display parent name without causing database queries
+        if obj.parent_id and hasattr(obj, 'parent') and obj.parent:
+            return obj.parent.name
+        return '-'
+    parent_name.short_description = 'Parent Category'
+    list_filter = ['is_active', 'created_at']
     search_fields = ['name', 'description']
     prepopulated_fields = {'slug': ('name',)}
     readonly_fields = ['created_at', 'updated_at']
     ordering = ['name']
-
+    list_select_related = ['parent']  # Optimize foreign key lookups
+    
+    def get_queryset(self, request):
+        # Optimize queryset to reduce database queries
+        return super().get_queryset(request).select_related('parent')
+    
     def subcategories_count(self, obj):
-        return obj.subcategories.count()
+        # Use cached count if available to avoid expensive database queries
+        from django.core.cache import cache
+        cache_key = f'part_category_subcategories_count_{obj.id}'
+        cached_count = cache.get(cache_key)
+        
+        if cached_count is not None:
+            return cached_count
+            
+        count = obj.subcategories.count()
+        cache.set(cache_key, count, 60 * 15)  # Cache for 15 minutes
+        return count
     subcategories_count.short_description = 'Subcategories'
-
+    
     def products_count(self, obj):
-        return obj.products.count()
+        # Use cached count if available to avoid expensive database queries
+        from django.core.cache import cache
+        cache_key = f'part_category_products_count_{obj.id}'
+        cached_count = cache.get(cache_key)
+        
+        if cached_count is not None:
+            return cached_count
+            
+        count = obj.products.count()
+        cache.set(cache_key, count, 60 * 15)  # Cache for 15 minutes
+        return count
     products_count.short_description = 'Products'
 
 

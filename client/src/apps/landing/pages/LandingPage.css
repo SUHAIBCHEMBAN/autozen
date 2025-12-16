@@ -6,369 +6,17 @@
   overflow-x: hidden;
 }
 
-/* Hero Section */
 /* Modern Hero Section */
 .modern-hero-section {
   width: 100%;
   position: relative;
   overflow: hidden;
-  background-color: #1a1f2e;
-}
-
-.hero-carousel-container {
-  position: relative;
-  width: 100%;
-  min-height: 600px;
-  padding: 60px 20px;
-}
-
-/* Background Slides */
-.hero-background-wrapper {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-}
-
-.hero-background-slide {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  opacity: 0;
-  transition: opacity 1s ease-in-out;
-}
-
-.hero-background-slide.active {
-  opacity: 1;
-}
-
-.hero-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    180deg,
-    rgba(26, 31, 46, 0.85) 0%,
-    rgba(26, 31, 46, 0.95) 100%
-  );
-}
-
-/* Content Container */
-.hero-content-container {
-  position: relative;
-  z-index: 1;
-  max-width: 1400px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 50px;
-}
-
-/* Text Content */
-.hero-text-content {
-  text-align: center;
-  color: white;
-  animation: fadeInUp 0.8s ease-out;
-}
-
-.hero-main-title {
-  font-size: 3rem;
-  font-weight: 500;
-  margin: 0 0 16px 0;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: #ffffff;
-  text-shadow: 2px 4px 8px rgba(0, 0, 0, 0.3);
-  line-height: 1.1;
-}
-
-.hero-main-subtitle {
-  font-size: 1.5rem;
-  font-weight: 300;
-  color: #e5e7eb;
-  margin: 0;
-  letter-spacing: 0.5px;
-}
-
-/* Featured Vehicles Grid */
-.featured-vehicles-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 30px;
-  padding: 0 20px;
-  animation: fadeInUp 1s ease-out 0.3s both;
-}
-
-/* Vehicle Card */
-.vehicle-card {
-  position: relative;
-  text-decoration: none;
-  display: block;
-  border-radius: 24px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  height: 280px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-
-.vehicle-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.vehicle-card-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-/* Vehicle Image */
-.vehicle-image {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  transition: filter 0.4s ease, transform 0.4s ease;
-}
-
-.vehicle-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.vehicle-image.blurred {
-  filter: blur(8px) brightness(0.4);
-  transform: scale(1.05);
-}
-
-/* Hover Content */
-.vehicle-hover-content {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 30px;
-  text-align: center;
-  opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-  color: white;
-  z-index: 2;
-}
-
-.vehicle-hover-content.visible {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-.vehicle-hover-title {
-  font-size: 1.75rem;
-  font-weight: 700;
-  margin: 0 0 12px 0;
-  color: #ffffff;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-}
-
-.vehicle-hover-description {
-  font-size: 1rem;
-  line-height: 1.5;
-  margin: 0 0 20px 0;
-  color: #e5e7eb;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-.vehicle-hover-link {
-  display: inline-block;
-  padding: 10px 24px;
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: white;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-}
-
-.vehicle-hover-content.visible .vehicle-hover-link:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.6);
-  transform: translateX(4px);
-}
-
-/* Carousel Navigation */
-.carousel-navigation {
-  position: absolute;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 12px;
-  z-index: 10;
-}
-
-.nav-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.4);
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  padding: 0;
-  outline: none;
-}
-
-.nav-dot:hover {
-  background: rgba(255, 255, 255, 0.6);
-  transform: scale(1.2);
-}
-
-.nav-dot.active {
-  background: #ffffff;
-  width: 32px;
-  border-radius: 6px;
-}
-
-/* Animations */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Responsive Design */
-@media (max-width: 1200px) {
-  .hero-main-title {
-    font-size: 3rem;
-  }
-  
-  .featured-vehicles-grid {
-    gap: 20px;
-  }
-  
-  .vehicle-card {
-    height: 240px;
-  }
-}
-
-@media (max-width: 992px) {
-  .hero-carousel-container {
-    min-height: 500px;
-    padding: 40px 15px;
-  }
-  
-  .hero-main-title {
-    font-size: 2.5rem;
-  }
-  
-  .hero-main-subtitle {
-    font-size: 1.25rem;
-  }
-  
-  .featured-vehicles-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .vehicle-card {
-    height: 220px;
-  }
-}
-
-@media (max-width: 768px) {
-  .hero-carousel-container {
-    min-height: 700px;
-    padding: 30px 15px;
-  }
-  
-  .hero-content-container {
-    gap: 35px;
-  }
-  
-  .hero-main-title {
-    font-size: 2rem;
-    letter-spacing: 1px;
-  }
-  
-  .hero-main-subtitle {
-    font-size: 1.1rem;
-  }
-  
-  .featured-vehicles-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-  
-  .vehicle-card {
-    height: 200px;
-  }
-  
-  .vehicle-hover-title {
-    font-size: 1.4rem;
-  }
-  
-  .vehicle-hover-description {
-    font-size: 0.9rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .hero-carousel-container {
-    min-height: 650px;
-  }
-  
-  .hero-main-title {
-    font-size: 1.75rem;
-  }
-  
-  .hero-main-subtitle {
-    font-size: 1rem;
-  }
-  
-  .vehicle-card {
-    height: 180px;
-  }
-  
-  .vehicle-hover-content {
-    padding: 20px;
-  }
-  
-  .vehicle-hover-title {
-    font-size: 1.2rem;
-  }
+  background-color: #ffff;
 }
 
 /* Categories Section */
 .categories-section {
-  padding: 4rem 0;
+  padding: 3rem 0;
   background-color: #f8fafc;
 }
 
@@ -380,10 +28,42 @@
   color: #1e293b;
 }
 
-.categories-grid {
+/* Parent Categories Bar */
+.parent-categories-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 2rem;
+  padding: 0 1rem;
+}
+
+.parent-category {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.parent-category:hover , .parent-category.active  {
+  color: #0f172a;
+}
+
+.separator {
+  color: #94a3b8;
+  font-weight: bold;
+  padding: 0 4px;
+}
+
+/* Child Categories Grid */
+.child-categories-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
   padding: 0 1rem;
 }
 
@@ -391,51 +71,52 @@
   display: block;
   text-decoration: none;
   background: white;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s, box-shadow 0.3s;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
   text-align: center;
-}
-
-.category-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  height: 100%;
 }
 
 .category-image,
 .category-icon {
   width: 100%;
-  height: 150px;
+  height: 100px;
   object-fit: cover;
 }
 
 .category-placeholder {
   width: 100%;
-  height: 150px;
+  height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #e2e8f0;
-  font-size: 3rem;
+  background-color: #f1f5f9;
+  font-size: 1.5rem;
   font-weight: bold;
   color: #94a3b8;
 }
 
 .category-title {
-  font-size: 1.25rem;
-  font-weight: bold;
-  margin: 1rem 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.5rem;
   color: #1e293b;
+  padding: 0 0.5rem;
+  line-height: 1.3;
 }
 
 .category-description {
   color: #64748b;
-  padding: 0 1rem 1rem;
-  font-size: 0.875rem;
+  padding: 0 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  margin: 0;
+  line-height: 1.4;
 }
 
-/* Featured Products Section */
+/* Featured Products Section - Carousel Styles are in FeaturedProductsSection.css */
 .featured-products-section {
   padding: 4rem 0;
 }
@@ -475,207 +156,32 @@
   background-color: #475569;
 }
 
-.products-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 2rem;
-  padding: 0 1rem;
-}
-
-.product-card {
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s, box-shadow 0.3s;
-}
-
-.product-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-}
-
-.product-link {
-  text-decoration: none;
-  color: inherit;
-  display: block;
-}
-
-.product-image {
-  width: 100%;
-  height: 200px;
-}
-
-.product-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.product-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #e2e8f0;
-  color: #94a3b8;
-}
-
-.product-info {
-  padding: 1rem;
-}
-
-.product-name {
-  font-size: 1.125rem;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-  color: #1e293b;
-}
-
-.product-price {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #3b82f6;
-}
-
-/* Advertisements Section */
-.advertisements-section {
-  padding: 4rem 0;
-  background-color: #f1f5f9;
-}
-
-.ads-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 2rem;
-  padding: 0 1rem;
-}
-
-.ad-card {
-  display: block;
-  position: relative;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
-  text-decoration: none;
-  color: inherit;
-}
-
-.ad-card:hover {
-  transform: scale(1.02);
-}
-
-.ad-card img {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-}
-
-.ad-content {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 1rem;
-}
-
-.ad-title {
-  font-size: 1.25rem;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-}
-
-.ad-subtitle {
-  font-size: 0.875rem;
-  opacity: 0.9;
-}
-
-/* Testimonials Section */
-.testimonials-section {
-  padding: 4rem 0;
-}
-
-.testimonials-slider {
-  display: flex;
-  overflow-x: auto;
-  gap: 2rem;
-  padding: 1rem;
-  scrollbar-width: none;
-}
-
-.testimonials-slider::-webkit-scrollbar {
-  display: none;
-}
-
-.testimonial-card {
-  min-width: 300px;
-  background: white;
-  border-radius: 8px;
-  padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.testimonial-text {
-  font-style: italic;
-  margin-bottom: 1.5rem;
-  color: #334155;
-  line-height: 1.6;
-}
-
-.testimonial-author {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.author-avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.author-info h4 {
-  margin: 0 0 0.25rem 0;
-  color: #1e293b;
-}
-
-.author-role {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.875rem;
-}
-
-.testimonial-rating {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.star {
-  color: #cbd5e1;
-  font-size: 1.25rem;
-}
-
-.star.filled {
-  color: #f59e0b;
-}
-
 /* Brands Section */
 .brands-section {
   padding: 4rem 0;
   background-color: #f8fafc;
 }
 
-.brands-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 2rem;
-  padding: 0 1rem;
+.brands-carousel-wrapper {
+  position: relative;
+  overflow: hidden;
+  padding: 0 2rem;
+}
+
+.brands-carousel {
+  overflow: hidden;
+  width: 100%;
+}
+
+.brands-carousel-track {
+  display: flex;
+  width: 100%;
+}
+
+.brand-carousel-item {
+  flex: 0 0 calc(16.666% - 1rem);
+  margin-right: 1.5rem;
+  min-width: 0;
 }
 
 .brand-card {
@@ -684,9 +190,11 @@
   justify-content: center;
   background: white;
   border-radius: 8px;
-  padding: 2rem 1rem;
+  padding: 1.5rem;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s;
+  height: 100px;
+  min-width: 120px;
 }
 
 .brand-card:hover {
@@ -699,10 +207,185 @@
   object-fit: contain;
 }
 
-.brand-name {
-  font-size: 1.25rem;
+.brand-placeholder {
+  font-size: 1rem;
   font-weight: bold;
   color: #64748b;
+  text-align: center;
+}
+
+/* Advertisements Section */
+.advertisements-section {
+  padding: 4rem 0;
+  background-color: #f8fafc;
+}
+
+.ads-carousel {
+  position: relative;
+  overflow: hidden;
+  padding: 0 2rem;
+}
+
+.ads-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+  gap: 1.5rem;
+  padding: 0 1rem;
+}
+
+.ad-card {
+  display: block;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  text-decoration: none;
+  color: inherit;
+  background: white;
+  height: 250px;
+}
+
+.ad-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+}
+
+.ad-image-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ad-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.ad-card:hover .ad-image {
+  transform: scale(1.05);
+}
+
+.ad-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 1.5rem;
+  backdrop-filter: blur(5px);
+}
+
+.ad-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+
+.ad-subtitle {
+  font-size: 1rem;
+  opacity: 0.9;
+  margin: 0;
+  color: #e2e8f0;
+}
+
+/* Testimonials Section */
+.testimonials-section {
+  padding: 4rem 0;
+  background-color: #f8fafc;
+}
+
+.testimonials-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  position: relative;
+  padding: 0 1rem;
+}
+
+.testimonial-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem 2rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  margin: 0 auto;
+}
+
+.testimonial-text {
+  font-style: italic;
+  margin-bottom: 1.5rem;
+  color: #334155;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+.testimonial-author {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.author-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
+}
+
+.author-info h4 {
+  margin: 0 0 0.25rem 0;
+  color: #1e293b;
+  font-size: 1rem;
+}
+
+.author-role {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.testimonial-rating {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.star {
+  color: #cbd5e1;
+  font-size: 1rem;
+}
+
+.star.filled {
+  color: #f59e0b;
+}
+
+.testimonial-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #cbd5e1;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.dot.active {
+  background-color: #3b82f6;
 }
 
 /* Loading and Error States */
@@ -740,6 +423,34 @@
 }
 
 /* Responsive Design */
+@media (max-width: 1200px) {
+  .brand-carousel-item {
+    flex: 0 0 calc(16.666% - 1rem);
+  }
+  
+  .ads-grid {
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  }
+}
+
+@media (max-width: 992px) {
+  .brand-carousel-item {
+    flex: 0 0 calc(20% - 1rem);
+  }
+  
+  .testimonials-container {
+    max-width: 700px;
+  }
+  
+  .ads-grid {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  }
+  
+  .ad-card {
+    height: 200px;
+  }
+}
+
 @media (max-width: 768px) {
   .hero-carousel {
     height: 300px;
@@ -754,10 +465,8 @@
   }
   
   .categories-grid,
-  .products-grid,
   .ads-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1rem;
+    grid-template-columns: 1fr;
   }
   
   .section-header {
@@ -771,8 +480,86 @@
   }
   
   .testimonial-card {
-    min-width: 250px;
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    margin: 0 0.5rem;
+  }
+  
+  .testimonial-text {
+    font-size: 0.95rem;
+    margin-bottom: 1.25rem;
+  }
+  
+  .author-avatar {
+    width: 45px;
+    height: 45px;
+  }
+  
+  .parent-categories-bar {
+    gap: 4px;
+  }
+  
+  .parent-category {
+    font-size: 0.9rem;
+    padding: 6px 8px;
+  }
+  
+  .child-categories-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .category-image,
+  .category-icon {
+    height: 80px;
+  }
+  
+  .category-placeholder {
+    height: 80px;
+    font-size: 1.25rem;
+  }
+  
+  .category-title {
+    font-size: 0.8rem;
+    margin: 0.5rem 0 0.25rem;
+  }
+  
+  .category-description {
+    font-size: 0.7rem;
+    padding: 0 0.25rem 0.5rem;
+  }
+  
+  .brand-carousel-item {
+    flex: 0 0 calc(25% - 1rem);
+  }
+  
+  .brand-card {
+    height: 80px;
+    padding: 1rem;
+    min-width: 80px;
+  }
+  
+  .brand-logo {
+    max-height: 50px;
+  }
+  
+  .brand-placeholder {
+    font-size: 0.8rem;
+  }
+  
+  .ad-card {
+    height: 180px;
+  }
+  
+  .ad-content {
+    padding: 1rem;
+  }
+  
+  .ad-title {
+    font-size: 1.25rem;
+  }
+  
+  .ad-subtitle {
+    font-size: 0.875rem;
   }
 }
 
@@ -794,13 +581,93 @@
   }
   
   .categories-grid,
-  .products-grid,
-  .ads-grid,
-  .brands-grid {
+  .ads-grid {
     grid-template-columns: 1fr;
   }
   
   .testimonial-card {
-    min-width: 200px;
+    padding: 1rem;
+  }
+  
+  .testimonial-text {
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+  
+  .author-info h4 {
+    font-size: 0.95rem;
+  }
+  
+  .author-role {
+    font-size: 0.8rem;
+  }
+  
+  .child-categories-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .category-image,
+  .category-icon {
+    height: 70px;
+  }
+  
+  .category-placeholder {
+    height: 70px;
+    font-size: 1rem;
+  }
+  
+  .category-title {
+    font-size: 0.75rem;
+  }
+  
+  .category-description {
+    font-size: 0.65rem;
+  }
+  
+  .brand-carousel-item {
+    flex: 0 0 calc(33.333% - 1rem);
+  }
+  
+  .brand-card {
+    height: 70px;
+    padding: 0.75rem;
+    min-width: 60px;
+  }
+  
+  .brand-logo {
+    max-height: 40px;
+  }
+  
+  .brand-placeholder {
+    font-size: 0.7rem;
+  }
+  
+  .testimonial-rating {
+    margin-top: 0.25rem;
+  }
+  
+  .star {
+    font-size: 0.9rem;
+  }
+  
+  .testimonial-dots {
+    margin-top: 0.75rem;
+  }
+  
+  .dot {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .ad-card {
+    height: 150px;
+  }
+  
+  .ad-title {
+    font-size: 1.1rem;
+  }
+  
+  .ad-subtitle {
+    font-size: 0.8rem;
   }
 }
