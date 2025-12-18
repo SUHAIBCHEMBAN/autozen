@@ -1,0 +1,48 @@
+.order-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.order-item:last-child {
+  border-bottom: none;
+}
+
+.item-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 16px;
+}
+
+.item-info {
+  flex: 1;
+}
+
+.item-info h3 {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.item-sku {
+  margin: 0 0 4px 0;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.item-quantity {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.item-price {
+  font-weight: 600;
+  color: #333;
+  min-width: 80px;
+  text-align: right;
+}

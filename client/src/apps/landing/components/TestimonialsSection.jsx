@@ -45,7 +45,7 @@ const TestimonialsSection = ({ testimonials }) => {
 
   return (
     <section className="testimonials-section">
-      <div className="container">
+      {/* <div className="container"> */}
         <h2 className="section-title">What Our Customers Say</h2>
         <div className="testimonials-container">
           <div className="testimonial-card">
@@ -94,7 +94,7 @@ const TestimonialsSection = ({ testimonials }) => {
             </div>
           )}
         </div>
-      </div>
+      {/* </div> */}
     </section>
   )
 }

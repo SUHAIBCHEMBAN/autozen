@@ -1,0 +1,73 @@
+{% extends "admin/login.html" %}
+
+{% load static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        .login-box {
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+        
+        .login-logo {
+            background-color: #0f1825; /* Dark blue background */
+            padding: 20px 0;
+            text-align: center;
+        }
+        
+        .login-logo img {
+            max-width: 200px;
+            height: auto;
+        }
+        
+        .login-logo h1 {
+            color: white;
+            margin: 10px 0 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .card-body {
+            padding: 30px;
+        }
+        
+        .form-control:focus {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 0.2rem rgba(239, 68, 68, 0.25);
+        }
+        
+        .btn-primary {
+            background-color: #ef4444;
+            border-color: #ef4444;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #dc2626;
+            border-color: #dc2626;
+            color: white;
+        }
+        
+        .login-box-msg {
+            color: #0f172a;
+            font-weight: 500;
+        }
+        
+        body {
+            background-color: #f4ece9;
+        }
+    </style>
+{% endblock %}
+
+{% block branding %}
+<div class="login-logo">
+    {% if site_logo %}
+        <img src="{% static site_logo %}" alt="{{ site_header }}">
+    {% else %}
+        <h1>{{ site_header }}</h1>
+    {% endif %}
+</div>
+{% endblock %}

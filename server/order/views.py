@@ -22,8 +22,24 @@ from .utils import (
 class IsOwnerOrStaff(permissions.BasePermission):
     """
     Custom permission to only allow owners of an order or staff to access it.
+    
+    This permission ensures that:
+    - Staff members have full access to all orders
+    - Regular users can only access their own orders
+    - Authenticated users can list their order history
     """
     def has_object_permission(self, request, view, obj):
+        """
+        Check if the user has permission to access a specific order object.
+        
+        Args:
+            request: The HTTP request object
+            view: The view being accessed
+            obj: The order object being accessed
+            
+        Returns:
+            bool: True if user has permission, False otherwise
+        """
         # Staff have all permissions
         if request.user.is_staff:
             return True
@@ -31,6 +47,16 @@ class IsOwnerOrStaff(permissions.BasePermission):
         return obj.user == request.user
 
     def has_permission(self, request, view):
+        """
+        Check if the user has general permission to access order views.
+        
+        Args:
+            request: The HTTP request object
+            view: The view being accessed
+            
+        Returns:
+            bool: True if user has permission, False otherwise
+        """
         # For list and create views, authenticated users can access
         if view.action == 'list' or view.action == 'history':
             return request.user.is_authenticated
@@ -62,8 +88,15 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """
-        This view should return a list of all orders
-        for the currently authenticated user, or all orders for staff.
+        Return a list of orders for the currently authenticated user, or all orders for staff.
+        
+        Filters orders based on user authentication status:
+        - Unauthenticated users get an empty queryset
+        - Staff users get all orders
+        - Regular users get only their own orders
+        
+        Returns:
+            QuerySet: Filtered orders queryset
         """
         # Check if user is authenticated
         if not self.request.user.is_authenticated:
@@ -100,7 +133,14 @@ class OrderViewSet(viewsets.ModelViewSet):
         return OrderSerializer
     
     def perform_create(self, serializer):
-        """Set the user to the current user when creating an order"""
+        """
+        Set the user to the current user when creating an order.
+        
+        This hook is called when saving a new order instance.
+        
+        Args:
+            serializer: The order serializer instance
+        """
         if self.request.user.is_authenticated:
             serializer.save(user=self.request.user)
     
@@ -163,7 +203,20 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None, **kwargs):
-        """Cancel an order if possible and restore inventory"""
+        """
+        Cancel an order if possible and restore inventory.
+        
+        Cancels an order if it's in a cancellable status and restores
+        the product inventory for pending or confirmed orders.
+        
+        Args:
+            request: The HTTP request object
+            pk: Primary key or order number
+            **kwargs: Additional keyword arguments
+            
+        Returns:
+            Response: Success or error message with appropriate status code
+        """
         order = self.get_object()
         
         # Handle both pk and order_number parameters
@@ -195,7 +248,18 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def update_status(self, request, pk=None):
-        """Update order status (staff only)"""
+        """
+        Update order status (staff only).
+        
+        Allows staff members to update the status of an order to any valid status.
+        
+        Args:
+            request: The HTTP request object containing the new status
+            pk: Primary key or order number
+            
+        Returns:
+            Response: Success or error message with appropriate status code
+        """
         if not request.user.is_staff:
             return Response(
                 {'error': 'Only staff can update order status'},
@@ -222,7 +286,20 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def return_order(self, request, pk=None, **kwargs):
-        """Return a delivered order"""
+        """
+        Return a delivered order.
+        
+        Processes the return of a delivered order by updating its status
+        to RETURNED and restoring the product inventory.
+        
+        Args:
+            request: The HTTP request object
+            pk: Primary key or order number
+            **kwargs: Additional keyword arguments
+            
+        Returns:
+            Response: Success or error message with appropriate status code
+        """
         order = self.get_object()
         
         # Only delivered orders can be returned
@@ -245,7 +322,18 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def history(self, request):
-        """Get order history for the current user with caching"""
+        """
+        Get order history for the current user with caching.
+        
+        Retrieves the order history for the authenticated user,
+        using cached data when available for improved performance.
+        
+        Args:
+            request: The HTTP request object
+            
+        Returns:
+            Response: Serialized order history data
+        """
         # Check if user is authenticated
         if not request.user.is_authenticated:
             return Response({'orders': []})
@@ -271,7 +359,20 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'], permission_classes=[], authentication_classes=[])
     def invoice(self, request, pk=None, **kwargs):
-        """Generate invoice view (HTML)"""
+        """
+        Generate invoice view (HTML).
+        
+        Creates and returns an HTML invoice for a specific order.
+        This endpoint is publicly accessible for convenience.
+        
+        Args:
+            request: The HTTP request object
+            pk: Primary key or order number
+            **kwargs: Additional keyword arguments
+            
+        Returns:
+            HttpResponse: HTML invoice content
+        """
         from django.http import HttpResponse
         from django.shortcuts import get_object_or_404
         
@@ -652,7 +753,15 @@ class OrderViewSet(viewsets.ModelViewSet):
     def track(self, request):
         """
         Track an order by order number (public access).
-        Requires order_number and matches optional email for verification if provided.
+        
+        Allows public access to track order status by order number.
+        Optionally verifies email for additional security.
+        
+        Args:
+            request: The HTTP request object containing order_number and optional email
+            
+        Returns:
+            Response: Serialized order data or error message with appropriate status code
         """
         order_number = request.data.get('order_number')
         email = request.data.get('email')
@@ -684,7 +793,23 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], permission_classes=[])
     def checkout(self, request):
-        """Process checkout and create order"""
+        """
+        Process checkout and create order.
+        
+        Handles the complete checkout process including:
+        - Validating checkout data
+        - Calculating order totals
+        - Creating the order
+        - Updating product inventory
+        - Sending confirmation emails
+        - Cleaning up cart items
+        
+        Args:
+            request: The HTTP request object containing checkout data
+            
+        Returns:
+            Response: Success message with order details or error message
+        """
         serializer = CheckoutSerializer(data=request.data)
         if serializer.is_valid():
             # Process checkout logic here

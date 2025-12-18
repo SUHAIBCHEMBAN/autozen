@@ -26,12 +26,15 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+# Hosts/domain names that are valid for this site
+# For production, you should specify your actual domain names
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,6 +45,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',  # Add this for token authentication
     'corsheaders',  # Add this for CORS support
     'django_filters',
+    'whitenoise',  # For serving static files in production
     'users',
     'products',
     'landing',
@@ -50,6 +54,7 @@ INSTALLED_APPS = [
     'wishlist',
     'cart',
     'payment',
+    'admin_custom',
 ]
 
 # Add debug toolbar to INSTALLED_APPS when DEBUG is True
@@ -61,6 +66,7 @@ if DEBUG:
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # Add this at the top for CORS
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # For serving static files in production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -80,7 +86,9 @@ ROOT_URLCONF = 'server.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            BASE_DIR / 'templates',
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -146,6 +154,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
 
 # Media files (user uploaded files)
 MEDIA_URL = '/media/'
@@ -170,17 +181,22 @@ if EMAIL_BACKEND != 'django.core.mail.backends.console.EmailBackend':
     EMAIL_HOST_USER = config('EMAIL_HOST_USER')
     EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
-# CORS settings for development
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Vite dev server
-    "http://127.0.0.1:5173",
-]
+# CORS settings
+# For production, you should specify your actual frontend domains
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:5173,http://127.0.0.1:5173', cast=lambda v: [s.strip() for s in v.split(',')])
 
 # Allow credentials to be included in CORS requests
 CORS_ALLOW_CREDENTIALS = True
 
-# Allow all headers for development
-CORS_ALLOW_ALL_HEADERS = True
+# Specify allowed headers instead of allowing all in production
+CORS_ALLOW_ALL_HEADERS = False
+CORS_ALLOWED_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
 # Allow specific methods
 CORS_ALLOWED_METHODS = [
@@ -199,16 +215,23 @@ CORS_EXPOSE_HEADERS = [
 ]
 
 # Allow all origins for development (be careful in production)
-CORS_ALLOW_ALL_ORIGINS = True
+# In production, you should set this to False and use CORS_ALLOWED_ORIGINS instead
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
 
 # Cache settings (using Redis cache for production, local memory cache for development)
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/1'),
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+            'CONNECTION_POOL_KWARGS': {
+                'max_connections': 20,
+                'retry_on_timeout': True,
+            }
+        },
+        'KEY_PREFIX': 'autozen',
+        'TIMEOUT': 300,  # Default timeout of 5 minutes
     }
 }
 
@@ -239,11 +262,15 @@ OTP_CACHE_TIMEOUT = 60 * 10   # 10 minutes for OTP codes
 try:
     import redis
 except ImportError:
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    if DEBUG:
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            }
         }
-    }
+    else:
+        # In production, we want to fail fast if Redis is not available
+        raise
 
 # Debug toolbar settings
 if DEBUG:
@@ -266,7 +293,233 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    # Throttling for API rate limiting
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour'
+    }
 }
 
 # Site Settings
 SITE_NAME = 'AutoZen'
+
+# Jazzmin Settings
+JAZZMIN_SETTINGS = {
+    # title of the window (Will default to current_admin_site.site_title if absent)
+    "site_title": "AutoZen Admin",
+
+    # Title on the login screen (19 chars max) (defaults to current_admin_site.site_header if absent)
+    "site_header": "AutoZen Administration",
+
+    # Title on the brand (19 chars max) (defaults to current_admin_site.site_header if absent)
+    "site_brand": "AutoZen Admin",
+
+    # Logo to use for your site, must be present in static files, used for brand on top left
+    "site_logo": "images/logo.svg",
+
+    # Logo to use for your site, must be present in static files, used for login form logo
+    "login_logo": "images/logo.svg",
+
+    # Logo to use for login form in dark themes (defaults to login_logo)
+    "login_logo_dark": "images/logo.svg",
+
+    # CSS classes that are applied to the logo above
+    "site_logo_classes": "img-circle",
+
+    # Relative path to a favicon for your site, will default to site_logo if absent (ideally 32x32 px)
+    "site_icon": "images/favicon.svg",
+
+    # Welcome text on the login screen
+    "welcome_sign": "Welcome to the AutoZen Administration",
+
+    # Copyright on the footer
+    "copyright": "AutoZen Ltd",
+
+    # List of model admins to search from the search bar, search bar omitted if excluded
+    "search_model": ["auth.User", "products.Product"],
+
+    # Field name on user model that contains avatar ImageField/URLField/Charfield or a callable that receives the user
+    "user_avatar": None,
+
+    ############
+    # Top Menu #
+    ############
+
+    # Links to put along the top menu
+    "topmenu_links": [
+
+        # Url that gets reversed (Permissions can be added)
+        {"name": "Home",  "url": "admin:index", "permissions": ["auth.view_user"]},
+
+        # external url that opens in a new window (Permissions can be added)
+        {"name": "Support", "url": "https://github.com/farridav/django-jazzmin/issues", "new_window": True},
+
+        # model admin to link to (Permissions checked against model)
+        {"model": "auth.User"},
+
+        # App with dropdown menu to all its models pages (Permissions checked against models)
+        {"app": "products"},
+    ],
+
+    #############
+    # User Menu #
+    #############
+
+    # Additional links to include in the user menu on the top right ("app" url type is not allowed)
+    "usermenu_links": [
+        {"name": "Support", "url": "https://github.com/farridav/django-jazzmin/issues", "new_window": True},
+        {"model": "auth.user"}
+    ],
+
+    #############
+    # Side Menu #
+    #############
+
+    # Whether to display the side menu
+    "show_sidebar": True,
+
+    # Whether to aut expand the menu
+    "navigation_expanded": True,
+
+    # Hide these apps when generating side menu e.g (auth)
+    "hide_apps": [],
+
+    # Hide these models when generating side menu (e.g auth.user)
+    "hide_models": [],
+
+    # List of apps (and/or models) to base side menu ordering off of (does not need to contain all apps/models)
+    "order_with_respect_to": ["auth", "products", "landing", "users", "order", "wishlist", "cart", "pages"],
+
+    # Custom links to append to app groups, keyed on app name
+    "custom_links": {
+        "products": [{
+            "name": "Make Messages", 
+            "url": "make_messages", 
+            "icon": "fas fa-comments",
+            "permissions": ["products.view_product"]
+        }]
+    },
+
+    # Custom icons for side menu apps/models See https://fontawesome.com/icons?d=gallery&m=free&v=5.0.0,5.0.1,5.0.10,5.0.11,5.0.12,5.0.13,5.0.2,5.0.3,5.0.4,5.0.5,5.0.6,5.0.7,5.0.8,5.0.9,5.1.0,5.1.1,5.2.0,5.3.0,5.3.1,5.4.0,5.4.1,5.4.2,5.13.0,5.12.0,5.11.2,5.11.1,5.10.0,5.9.0,5.8.2,5.8.1,5.7.2,5.7.1,5.7.0,5.6.3,5.5.0,5.4.2
+    # for the full list of 5.13.0 free icon classes
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "products.Brand": "fas fa-car",
+        "products.VehicleModel": "fas fa-car-side",
+        "products.PartCategory": "fas fa-tags",
+        "products.Product": "fas fa-box-open",
+        "landing.HeroBanner": "fas fa-image",
+        "landing.FeaturedVehicle": "fas fa-star",
+        "landing.CategorySection": "fas fa-th-large",
+        "landing.AdvertisementBanner": "fas fa-ad",
+        "landing.Testimonial": "fas fa-comment",
+        "landing.LandingPageConfiguration": "fas fa-cog",
+        "users.User": "fas fa-user-friends",
+        "users.Address": "fas fa-address-book",
+        "order.Order": "fas fa-shopping-cart",
+        "order.OrderItem": "fas fa-box",
+        "order.OrderStatusLog": "fas fa-history",
+        "order.OrderNotification": "fas fa-bell",
+        "wishlist.Wishlist": "fas fa-heart",
+        "wishlist.WishlistItem": "fas fa-heartbeat",
+        "cart.Cart": "fas fa-shopping-basket",
+        "cart.CartItem": "fas fa-box",
+        "pages.Page": "fas fa-file-alt",
+        "pages.FAQ": "fas fa-question-circle",
+        "payment.Transaction": "fas fa-file-invoice-dollar",
+        "payment.Refund": "fas fa-arrow-rotate-left",
+        "payment.PaymentConfiguration": "fas fa-cog"
+
+    },
+    # Icons that are used when one is not manually specified
+    "default_icon_parents": "fas fa-chevron-circle-right",
+    "default_icon_children": "fas fa-circle",
+
+    #################
+    # Related Modal #
+    #################
+    # Use modals instead of popups
+    "related_modal_active": False,
+
+    #############
+    # UI Tweaks #
+    #############
+    # Relative paths to custom CSS/JS scripts (must be present in static files)
+    "custom_css": None,
+    "custom_js": None,
+    # Whether to link font from fonts.googleapis.com (use custom_css to supply font otherwise)
+    "use_google_fonts_cdn": True,
+    # Whether to show the UI customizer on the sidebar
+    "show_ui_builder": False,
+
+    ###############
+    # Change view #
+    ###############
+    # Render out the change view as a single form, or in tabs, current options are
+    # - single
+    # - horizontal_tabs (default)
+    # - vertical_tabs
+    # - collapsible
+    # - carousel
+    "changeform_format": "horizontal_tabs",
+    # override change forms on a per modeladmin basis
+    "changeform_format_overrides": {"auth.user": "collapsible", "auth.group": "vertical_tabs"},
+    # Add a language dropdown into the admin
+    "language_chooser": False,
+}
+
+# Security settings for production
+# https://docs.djangoproject.com/en/5.2/topics/security/
+
+# Security Middleware settings
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool)
+SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
+SECURE_REDIRECT_EXEMPT = []
+SECURE_SSL_HOST = config('SECURE_SSL_HOST', default=None)
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+
+# Additional security settings
+X_FRAME_OPTIONS = 'DENY'
+
+# Jazzmin UI tweaks - customize the look and feel
+JAZZMIN_UI_TWEAKS = {
+    "navbar_small_text": False,
+    "footer_small_text": False,
+    "body_small_text": False,
+    "brand_small_text": False,
+    "brand_colour": "navbar-danger",
+    "accent": "accent-danger",
+    "navbar": "navbar-dark",
+    "no_navbar_border": False,
+    "navbar_fixed": False,
+    "layout_boxed": False,
+    "footer_fixed": False,
+    "sidebar_fixed": False,
+    "sidebar": "sidebar-dark-danger",
+    "sidebar_nav_small_text": False,
+    "sidebar_disable_expand": False,
+    "sidebar_nav_child_indent": False,
+    "sidebar_nav_compact_style": False,
+    "sidebar_nav_legacy_style": False,
+    "sidebar_nav_flat_style": False,
+    "theme": "default",
+    "dark_mode_theme": None,
+    "button_classes": {
+        "primary": "btn-danger",
+        "secondary": "btn-secondary",
+        "info": "btn-info",
+        "warning": "btn-warning",
+        "danger": "btn-danger",
+        "success": "btn-success"
+    }
+}

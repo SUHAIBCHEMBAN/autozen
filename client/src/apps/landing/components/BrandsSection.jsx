@@ -1,113 +1,92 @@
 import { useState, useEffect, useRef } from 'react'
 
 const BrandsSection = ({ brands }) => {
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const trackRef = useRef(null)
   const intervalRef = useRef(null)
+  const [isHovered, setIsHovered] = useState(false)
+  const [itemsToShow, setItemsToShow] = useState(6)
+  const [index, setIndex] = useState(0)
 
-  // Log brands data for debugging
-  useEffect(() => {
-    console.log('Brands data received:', brands);
-    console.log('Number of brands:', brands?.length);
-  }, [brands]);
+  // Duplicate brands for infinite loop
+  const infiniteBrands = [...brands, ...brands]
 
-  // Auto-slide functionality - show 6 brands at a time
+  // Responsive items count
   useEffect(() => {
-    if (!brands || brands.length === 0) {
-      console.log('No brands to display');
-      return;
+    const updateItems = () => {
+      if (window.innerWidth < 640) setItemsToShow(2)
+      else if (window.innerWidth < 1024) setItemsToShow(4)
+      else setItemsToShow(6)
     }
-    
-    // Clear any existing interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    
-    // Show 6 brands at a time for sliding effect
-    const brandsToShow = 6;
-    console.log('Brands to show:', brandsToShow);
-    console.log('Total brands:', brands.length);
-    
-    // Set up interval for sliding
+
+    updateItems()
+    window.addEventListener('resize', updateItems)
+    return () => window.removeEventListener('resize', updateItems)
+  }, [])
+
+  // Auto slide
+  useEffect(() => {
+    if (isHovered || brands.length === 0) return
+
     intervalRef.current = setInterval(() => {
-      setCurrentIndex(prevIndex => {
-        console.log('Current index:', prevIndex);
-        // Move to next index (sliding left to right)
-        // Always slide if we have more than brandsToShow
-        if (brands.length > brandsToShow) {
-          const newIndex = prevIndex >= brands.length - brandsToShow ? 0 : prevIndex + 1;
-          console.log('Moving to index:', newIndex);
-          return newIndex;
-        } else {
-          // If we have fewer brands than we can show, just reset to 0 (no visible change)
-          console.log('Not enough brands to slide, resetting to index: 0');
-          return 0;
-        }
-      })
-    }, 3000) // Slide every 3 seconds
-    
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [brands])
+      setIndex(prev => prev + 1)
+    }, 2500)
 
-  // Handle window resize
+    return () => clearInterval(intervalRef.current)
+  }, [isHovered, brands])
+
+  // Reset position seamlessly
   useEffect(() => {
-    const handleResize = () => {
-      console.log('Window resized, resetting carousel position');
-      setCurrentIndex(0); // Reset carousel position on resize
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    if (index === brands.length) {
+      setTimeout(() => {
+        trackRef.current.style.transition = 'none'
+        setIndex(0)
+        trackRef.current.style.transform = `translateX(0)`
+      }, 500)
+    } else {
+      trackRef.current.style.transition = 'transform 0.5s ease-in-out'
+    }
+  }, [index, brands.length])
 
-  if (!brands || brands.length === 0) {
-    return null
-  }
+  if (!brands || brands.length === 0) return null
 
-  // Show 6 brands at a time
-  const brandsToShow = 6;
-  const brandWidth = 100 / brandsToShow;
-  
-  console.log('Rendering with currentIndex:', currentIndex, 'brandWidth:', brandWidth);
+  const itemWidth = 100 / itemsToShow
 
   return (
     <section className="brands-section">
-      <div className="container">
-        <h2 className="section-title">Popular Brands</h2>
-        <div className="brands-carousel-wrapper">
-          <div className="brands-carousel">
-            <div 
-              className="brands-carousel-track"
-              style={{
-                transform: `translateX(-${currentIndex * brandWidth}%)`,
-                transition: 'transform 0.5s ease-in-out'
-              }}
-            >
-              {brands.map((brand, index) => (
-                <div key={`${brand.id}-${index}`} className="brand-carousel-item">
-                  <div className="brand-card">
-                    {brand.logo ? (
-                      <img 
-                        src={brand.logo} 
-                        alt={brand.name}
-                        className="brand-logo"
-                        onError={(e) => { 
-                          console.log('Image load error for brand:', brand.name, 'URL:', e.target.src);
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="brand-placeholder">
-                        {brand.name}
-                      </div>
-                    )}
-                  </div>
+      <h2 className="section-title">Popular Brands</h2>
+
+      <div
+        className="brands-carousel-wrapper"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div className="brands-carousel">
+          <div
+            ref={trackRef}
+            className="brands-carousel-track"
+            style={{
+              transform: `translateX(-${index * itemWidth}%)`,
+            }}
+          >
+            {infiniteBrands.map((brand, i) => (
+              <div
+                key={`${brand.id}-${i}`}
+                className="brand-carousel-item"
+                style={{ width: `${itemWidth}%` }}
+              >
+                <div className="brand-card">
+                  {brand.logo ? (
+                    <img
+                      src={brand.logo}
+                      alt={brand.name}
+                      className="brand-logo"
+                    />
+                  ) : (
+                    <div className="brand-placeholder">{brand.name}</div>
+                  )}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

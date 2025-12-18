@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { trackOrder } from '../services/orderService'
+import { ProgressTracker, StatusBadge } from '../components'
 import './OrderTracking.css'
 
 function OrderTracking() {
@@ -26,16 +27,6 @@ function OrderTracking() {
       setError(err.message || 'Failed to find order')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'delivered': return 'status-success'
-      case 'shipped': return 'status-info'
-      case 'processing': return 'status-warning'
-      case 'cancelled': return 'status-danger'
-      default: return 'status-default'
     }
   }
 
@@ -97,29 +88,10 @@ function OrderTracking() {
                 <h3>Order #{order.order_number}</h3>
                 <span className="order-date">Placed on {formatDate(order.created_at)}</span>
               </div>
-              <span className={`order-status ${getStatusColor(order.status)}`}>
-                {order.status.replace(/_/g, ' ')}
-              </span>
+              <StatusBadge status={order.status} />
             </div>
 
-            <div className="order-progress">
-              <div className={`progress-step ${['pending', 'confirmed', 'processing', 'shipped', 'delivered'].includes(order.status) ? 'active' : ''}`}>
-                <div className="step-icon">✓</div>
-                <span>Ordered</span>
-              </div>
-              <div className={`progress-step ${['processing', 'shipped', 'delivered'].includes(order.status) ? 'active' : ''}`}>
-                <div className="step-icon">⚙</div>
-                <span>Processing</span>
-              </div>
-              <div className={`progress-step ${['shipped', 'delivered'].includes(order.status) ? 'active' : ''}`}>
-                <div className="step-icon">🚚</div>
-                <span>Shipped</span>
-              </div>
-              <div className={`progress-step ${order.status === 'delivered' ? 'active' : ''}`}>
-                <div className="step-icon">🏠</div>
-                <span>Delivered</span>
-              </div>
-            </div>
+            <ProgressTracker currentStatus={order.status} />
 
             <div className="result-details">
               <div className="detail-section">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getOrderByNumber } from '../services/orderService'
+import { OrderSummary, AddressCard, OrderItem, StatusBadge } from '../components'
 import './OrderConfirmation.css'
 
 function OrderConfirmation() {
@@ -26,6 +27,18 @@ function OrderConfirmation() {
       setError(err.message || 'Failed to load order details')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Calculate order totals for the OrderSummary component
+  const calculateTotals = (order) => {
+    if (!order) return { subtotal: 0, taxAmount: 0, shippingCost: 0, totalAmount: 0 };
+    
+    return {
+      subtotal: parseFloat(order.subtotal),
+      taxAmount: parseFloat(order.tax_amount),
+      shippingCost: parseFloat(order.shipping_cost),
+      totalAmount: parseFloat(order.total_amount),
     }
   }
 
@@ -62,6 +75,8 @@ function OrderConfirmation() {
       </div>
     )
   }
+
+  const totals = calculateTotals(order)
 
   return (
     <div className="order-confirmation-page">
@@ -100,8 +115,8 @@ function OrderConfirmation() {
             </div>
             <div className="info-row">
               <span className="info-label">Status:</span>
-              <span className={`status-badge status-${order.status}`}>
-                {order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' ')}
+              <span className="info-value">
+                <StatusBadge status={order.status} />
               </span>
             </div>
             <div className="info-row">
@@ -124,75 +139,49 @@ function OrderConfirmation() {
             <h2>Order Items</h2>
             <div className="items-list">
               {order.items && order.items.map((item) => (
-                <div key={item.id} className="order-item">
-                  <div className="item-info">
-                    <h3>{item.product_name}</h3>
-                    <p className="item-sku">SKU: {item.product_sku}</p>
-                    <p className="item-quantity">Quantity: {item.quantity}</p>
-                  </div>
-                  <div className="item-price">
-                    ₹{parseFloat(item.total_price).toFixed(2)}
-                  </div>
-                </div>
+                <OrderItem key={item.id} item={item} />
               ))}
             </div>
           </div>
 
           <div className="order-addresses">
-            <div className="address-card">
-              <h3>Billing Address</h3>
-              <div className="address-content">
-                <p>{order.first_name} {order.last_name}</p>
-                <p>{order.billing_address_line1}</p>
-                {order.billing_address_line2 && <p>{order.billing_address_line2}</p>}
-                <p>
-                  {order.billing_city}, {order.billing_state} {order.billing_postal_code}
-                </p>
-                <p>{order.billing_country}</p>
-                <p>Phone: {order.phone_number}</p>
-                <p>Email: {order.email}</p>
-              </div>
-            </div>
-
-            <div className="address-card">
-              <h3>Shipping Address</h3>
-              <div className="address-content">
-                <p>{order.first_name} {order.last_name}</p>
-                <p>{order.shipping_address_line1}</p>
-                {order.shipping_address_line2 && <p>{order.shipping_address_line2}</p>}
-                <p>
-                  {order.shipping_city}, {order.shipping_state} {order.shipping_postal_code}
-                </p>
-                <p>{order.shipping_country}</p>
-              </div>
-            </div>
+            <AddressCard 
+              title="Billing Address"
+              address={{
+                first_name: order.first_name,
+                last_name: order.last_name,
+                address_line1: order.billing_address_line1,
+                address_line2: order.billing_address_line2,
+                city: order.billing_city,
+                state: order.billing_state,
+                postal_code: order.billing_postal_code,
+                country: order.billing_country,
+                phone_number: order.phone_number
+              }}
+            />
+            
+            <AddressCard 
+              title="Shipping Address"
+              address={{
+                first_name: order.first_name,
+                last_name: order.last_name,
+                address_line1: order.shipping_address_line1,
+                address_line2: order.shipping_address_line2,
+                city: order.shipping_city,
+                state: order.shipping_state,
+                postal_code: order.shipping_postal_code,
+                country: order.shipping_country
+              }}
+            />
           </div>
 
           <div className="order-summary-card">
             <h2>Order Summary</h2>
-            <div className="summary-row">
-              <span>Subtotal</span>
-              <span>₹{parseFloat(order.subtotal).toFixed(2)}</span>
-            </div>
-            <div className="summary-row">
-              <span>VAT (12%)</span>
-              <span>₹{parseFloat(order.tax_amount).toFixed(2)}</span>
-            </div>
-            <div className="summary-row">
-              <span>Shipping</span>
-              <span>₹{parseFloat(order.shipping_cost).toFixed(2)}</span>
-            </div>
-            {order.discount_amount > 0 && (
-              <div className="summary-row">
-                <span>Discount</span>
-                <span>-₹{parseFloat(order.discount_amount).toFixed(2)}</span>
-              </div>
-            )}
-            <div className="summary-divider"></div>
-            <div className="summary-row summary-total">
-              <span>Total</span>
-              <span>₹{parseFloat(order.total_amount).toFixed(2)}</span>
-            </div>
+            <OrderSummary 
+              items={order.items || []}
+              totals={totals}
+              showButton={false}
+            />
           </div>
 
           {order.payment_method === 'bank_transfer' && (

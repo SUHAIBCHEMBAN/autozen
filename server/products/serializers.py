@@ -11,6 +11,8 @@ class BrandSerializer(serializers.ModelSerializer):
     """Serializer for Brand model"""
     url = serializers.HyperlinkedIdentityField(view_name='products:brand-detail', lookup_field='slug')
     models_count = serializers.SerializerMethodField()
+    # Ensure logo URL is properly formatted
+    logo = serializers.ImageField(use_url=True, read_only=True)
     
     class Meta:
         model = Brand
@@ -41,6 +43,25 @@ class BrandSerializer(serializers.ModelSerializer):
         count = len(models_list)
         cache.set(cache_key, count, 60 * 15)  # Cache for 15 minutes
         return count
+    
+    def to_representation(self, instance):
+        """
+        Override to_representation to ensure image URLs are properly formatted.
+        
+        Args:
+            instance (Brand): The brand instance
+            
+        Returns:
+            dict: The serialized representation
+        """
+        representation = super().to_representation(instance)
+        
+        # Ensure logo has the correct URL
+        request = self.context.get('request')
+        if request and instance.logo:
+            representation['logo'] = request.build_absolute_uri(instance.logo.url)
+        
+        return representation
 
 
 class BrandDetailSerializer(BrandSerializer):
@@ -82,6 +103,8 @@ class VehicleModelSerializer(serializers.ModelSerializer):
     )
     brand_name = serializers.CharField(source='brand.name', read_only=True)
     products_count = serializers.SerializerMethodField()
+    # Ensure image URL is properly formatted
+    image = serializers.ImageField(use_url=True, read_only=True)
     
     class Meta:
         model = VehicleModel
@@ -113,6 +136,25 @@ class VehicleModelSerializer(serializers.ModelSerializer):
         count = Product.objects.filter(vehicle_model=obj, is_active=True).count()
         cache.set(cache_key, count, 60 * 15)  # Cache for 15 minutes
         return count
+    
+    def to_representation(self, instance):
+        """
+        Override to_representation to ensure image URLs are properly formatted.
+        
+        Args:
+            instance (VehicleModel): The vehicle model instance
+            
+        Returns:
+            dict: The serialized representation
+        """
+        representation = super().to_representation(instance)
+        
+        # Ensure image has the correct URL
+        request = self.context.get('request')
+        if request and instance.image:
+            representation['image'] = request.build_absolute_uri(instance.image.url)
+        
+        return representation
 
 
 class VehicleModelDetailSerializer(VehicleModelSerializer):
@@ -155,6 +197,8 @@ class PartCategorySerializer(serializers.ModelSerializer):
     subcategories_count = serializers.SerializerMethodField()
     is_parent_category = serializers.SerializerMethodField()  # Changed from source to method
     full_path = serializers.SerializerMethodField()  # Changed from source to method
+    # Ensure image URL is properly formatted
+    image = serializers.ImageField(use_url=True, read_only=True)
     
     class Meta:
         model = PartCategory
@@ -210,6 +254,25 @@ class PartCategorySerializer(serializers.ModelSerializer):
             str: The full path of the category
         """
         return obj.get_full_path()
+    
+    def to_representation(self, instance):
+        """
+        Override to_representation to ensure image URLs are properly formatted.
+        
+        Args:
+            instance (PartCategory): The part category instance
+            
+        Returns:
+            dict: The serialized representation
+        """
+        representation = super().to_representation(instance)
+        
+        # Ensure image has the correct URL
+        request = self.context.get('request')
+        if request and instance.image:
+            representation['image'] = request.build_absolute_uri(instance.image.url)
+        
+        return representation
 
 
 class PartCategoryDetailSerializer(PartCategorySerializer):
@@ -278,6 +341,8 @@ class ProductListSerializer(serializers.ModelSerializer):
     amount_saved = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     discount_percentage = serializers.IntegerField(read_only=True)
     is_in_stock = serializers.BooleanField(read_only=True)
+    # Ensure featured_image URL is properly formatted
+    featured_image = serializers.ImageField(use_url=True, read_only=True)
     
     def get_brand_name(self, obj):
         """Get brand name from cached or loaded brand object"""
@@ -343,7 +408,15 @@ class ProductListSerializer(serializers.ModelSerializer):
                 # Temporarily replace the part_category with the cached version
                 instance.part_category = cached_category
         
-        return super().to_representation(instance)
+        # Get the representation from the parent class
+        representation = super().to_representation(instance)
+        
+        # Ensure featured_image has the correct URL
+        request = self.context.get('request')
+        if request and instance.featured_image:
+            representation['featured_image'] = request.build_absolute_uri(instance.featured_image.url)
+        
+        return representation
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):

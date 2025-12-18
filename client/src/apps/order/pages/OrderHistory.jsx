@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { getOrderHistory, cancelOrder, downloadInvoice, returnOrder } from '../services/orderService'
+import { OrderItem, StatusBadge } from '../components'
 import './OrderHistory.css'
 
 function OrderHistory() {
@@ -64,16 +65,6 @@ function OrderHistory() {
     return `http://localhost:8000${image}`
   }
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'delivered': return 'status-success'
-      case 'shipped': return 'status-info'
-      case 'processing': return 'status-warning'
-      case 'cancelled': return 'status-danger'
-      default: return 'status-default'
-    }
-  }
-
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -117,9 +108,7 @@ function OrderHistory() {
                     <span className="order-number">#{order.order_number}</span>
                     <span className="order-date">{formatDate(order.created_at)}</span>
                   </div>
-                  <span className={`order-status ${getStatusColor(order.status)}`}>
-                    {order.status.replace(/_/g, ' ')}
-                  </span>
+                  <StatusBadge status={order.status} />
                 </div>
 
                 <div className="order-card-body">
@@ -197,23 +186,23 @@ function OrderHistory() {
 }
 
 const handleReturn = async (orderNumber) => {
-    if (!window.confirm('Are you sure you want to return this order?')) {
-      return
-    }
-
-    try {
-      setCancellingId(orderNumber)
-      // Call the return endpoint through the service
-      await returnOrder(orderNumber)
-      
-      // Refresh list
-      await fetchOrders()
-      alert(`Order ${orderNumber} returned successfully`)
-    } catch (err) {
-      alert(err.message || 'Failed to return order')
-    } finally {
-      setCancellingId(null)
-    }
+  if (!window.confirm('Are you sure you want to return this order?')) {
+    return
   }
+
+  try {
+    setCancellingId(orderNumber)
+    // Call the return endpoint through the service
+    await returnOrder(orderNumber)
+    
+    // Refresh list
+    await fetchOrders()
+    alert(`Order ${orderNumber} returned successfully`)
+  } catch (err) {
+    alert(err.message || 'Failed to return order')
+  } finally {
+    setCancellingId(null)
+  }
+}
 
 export default OrderHistory

@@ -4,6 +4,16 @@
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
+  background-color: #ffffff;
+}
+
+/* Add spacing between sections */
+.landing-page > section {
+  margin-bottom: 3rem;
+}
+
+.landing-page > div:not(.modern-hero-section) {
+  margin-bottom: 3rem;
 }
 
 /* Modern Hero Section */
@@ -12,12 +22,14 @@
   position: relative;
   overflow: hidden;
   background-color: #ffff;
+  margin-bottom: 3rem;
 }
 
 /* Categories Section */
 .categories-section {
   padding: 3rem 0;
   background-color: #f8fafc;
+  margin-bottom: 3rem;
 }
 
 .section-title {
@@ -116,85 +128,44 @@
   line-height: 1.4;
 }
 
-/* Featured Products Section - Carousel Styles are in FeaturedProductsSection.css */
-.featured-products-section {
-  padding: 4rem 0;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding: 0 1rem;
-}
-
-.btn {
-  display: inline-block;
-  padding: 10px 20px;
-  border-radius: 4px;
-  text-decoration: none;
-  font-weight: bold;
-  transition: background-color 0.3s;
-}
-
-.btn-primary {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #2563eb;
-}
-
-.btn-secondary {
-  background-color: #64748b;
-  color: white;
-}
-
-.btn-secondary:hover {
-  background-color: #475569;
-}
-
 /* Brands Section */
 .brands-section {
+  width: 100%;
   padding: 4rem 0;
-  background-color: #f8fafc;
+  background: #f8fafc;
+  overflow: hidden;
+  margin-bottom: 3rem;
 }
 
 .brands-carousel-wrapper {
-  position: relative;
+  width: 100%;
   overflow: hidden;
-  padding: 0 2rem;
 }
 
 .brands-carousel {
-  overflow: hidden;
   width: 100%;
 }
 
 .brands-carousel-track {
   display: flex;
-  width: 100%;
+  will-change: transform;
 }
 
 .brand-carousel-item {
-  flex: 0 0 calc(16.666% - 1rem);
-  margin-right: 1.5rem;
-  min-width: 0;
+  flex-shrink: 0;
+  padding: 0 0.75rem;
+  box-sizing: border-box;
 }
 
 .brand-card {
+  height: 100px;
+  background: #fff;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
-  height: 100px;
-  min-width: 120px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s ease;
 }
 
 .brand-card:hover {
@@ -207,97 +178,171 @@
   object-fit: contain;
 }
 
-.brand-placeholder {
-  font-size: 1rem;
-  font-weight: bold;
-  color: #64748b;
-  text-align: center;
-}
 
 /* Advertisements Section */
 .advertisements-section {
-  padding: 4rem 0;
-  background-color: #f8fafc;
-}
-
-.ads-carousel {
-  position: relative;
-  overflow: hidden;
-  padding: 0 2rem;
-}
-
-.ads-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
-  gap: 1.5rem;
-  padding: 0 1rem;
-}
-
-.ad-card {
-  display: block;
-  position: relative;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  text-decoration: none;
-  color: inherit;
-  background: white;
-  height: 250px;
-}
-
-.ad-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
-}
-
-.ad-image-container {
-  position: relative;
   width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.ad-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.ad-card:hover .ad-image {
-  transform: scale(1.05);
-}
-
-.ad-content {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 1.5rem;
-  backdrop-filter: blur(5px);
-}
-
-.ad-title {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-  color: white;
-}
-
-.ad-subtitle {
-  font-size: 1rem;
-  opacity: 0.9;
   margin: 0;
-  color: #e2e8f0;
+  padding: 0;
+  position: relative;
+  margin-bottom: 3rem;
 }
+
+.ad-banner-container {
+  position: relative;
+  width: 100%;
+  height: 450px;
+  overflow: hidden;
+}
+
+.ad-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+  text-decoration: none;
+  display: block;
+}
+
+.ad-banner.active {
+  opacity: 1;
+  z-index: 1;
+}
+
+.ad-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.ad-content-wrapper {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 4rem;
+  display: flex;
+  align-items: center;
+}
+
+.ad-text-content {
+  max-width: 600px;
+}
+
+.ad-main-title {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+  margin-bottom: 1.5rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.ad-description {
+  font-size: 1.125rem;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  max-width: 500px;
+}
+
+.ad-shop-button {
+  background-color: rgba(241, 245, 249, 0.95);
+  color: #1e293b;
+  padding: 1rem 2.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: capitalize;
+}
+
+.ad-shop-button:hover {
+  background-color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .ad-banner-container {
+    height: 400px;
+  }
+
+  .ad-content-wrapper {
+    padding: 0 2rem;
+  }
+
+  .ad-main-title {
+    font-size: 2.5rem;
+  }
+
+  .ad-description {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .ad-banner-container {
+    height: 350px;
+  }
+
+  .ad-content-wrapper {
+    padding: 0 1.5rem;
+  }
+
+  .ad-main-title {
+    font-size: 2rem;
+  }
+
+  .ad-description {
+    font-size: 0.9375rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .ad-shop-button {
+    padding: 0.875rem 2rem;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .ad-banner-container {
+    height: 300px;
+  }
+
+  .ad-main-title {
+    font-size: 1.5rem;
+  }
+
+  .ad-description {
+    font-size: 0.875rem;
+  }
+
+  .ad-shop-button {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9375rem;
+  }
+}
+
 
 /* Testimonials Section */
 .testimonials-section {
   padding: 4rem 0;
   background-color: #f8fafc;
+  margin-bottom: 3rem;
 }
 
 .testimonials-container {

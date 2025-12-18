@@ -4,51 +4,73 @@ import './FeaturedProductsSection.css'
 
 const FeaturedProductsSection = ({ products }) => {
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const intervalRef = useRef(null)
 
   // Helper function to get image URL
   const getImageUrl = (image) => {
     if (!image) return '/placeholder-product.png'
-    
-    // If already a full URL, return as is
+
     if (image.startsWith('http://') || image.startsWith('https://')) {
       return image
     }
-    
-    // If starts with /media/, add base URL
+
     if (image.startsWith('/media/')) {
       return `http://localhost:8000${image}`
     }
-    
-    // If doesn't start with /, add /media/ prefix
+
     if (!image.startsWith('/')) {
       return `http://localhost:8000/media/${image}`
     }
-    
-    // Otherwise, add base URL
+
     return `http://localhost:8000${image}`
   }
 
-  // Auto-slide functionality - sliding left to right with longer interval
+  // Create extended array for infinite loop effect
+  const getExtendedProducts = () => {
+    if (!products || products.length === 0) return []
+    
+    // If we have 4 or fewer products, duplicate them to enable sliding
+    if (products.length <= 4) {
+      return [...products, ...products, ...products]
+    }
+    
+    // For more than 4 products, add copies at the end for seamless loop
+    return [...products, ...products.slice(0, 4)]
+  }
+
+  const extendedProducts = getExtendedProducts()
+
+  // Auto-slide functionality with infinite loop
   useEffect(() => {
-    if (!products || products.length <= 3) return
-    
+    if (!products || products.length === 0) return
+
     intervalRef.current = setInterval(() => {
-      setCurrentIndex(prevIndex => {
-        // Move to next index (sliding left to right)
-        if (prevIndex >= products.length - 3) {
-          return 0 // Reset to beginning
-        }
-        return prevIndex + 1
-      })
-    }, 5000) // Slide every 5 seconds (increased from 3 seconds)
-    
+      setIsTransitioning(true)
+      setCurrentIndex(prevIndex => prevIndex + 1)
+    }, 4000) // Slide every 4 seconds
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
       }
     }
   }, [products])
+
+  // Handle infinite loop reset
+  useEffect(() => {
+    if (!isTransitioning) return
+
+    const timer = setTimeout(() => {
+      // If we've reached the duplicated section, reset to the beginning without transition
+      if (currentIndex >= products.length) {
+        setIsTransitioning(false)
+        setCurrentIndex(0)
+      }
+    }, 500) // Match the transition duration
+
+    return () => clearTimeout(timer)
+  }, [currentIndex, isTransitioning, products])
 
   if (!products || products.length === 0) {
     return (
@@ -65,22 +87,21 @@ const FeaturedProductsSection = ({ products }) => {
 
   return (
     <section className="featured-products-section">
-      <div className="container">
+      {/* <div className="container"> */}
         <div className="section-header">
           <h2 className="section-title no-underline">Featured Products</h2>
         </div>
-        
+
         <div className="products-carousel-wrapper">
-          {/* Products carousel */}
           <div className="products-carousel">
             <div 
               className="products-carousel-track"
               style={{
-                transform: `translateX(-${currentIndex * 33.333}%)`,
-                transition: 'transform 0.5s ease-in-out'
+                transform: `translateX(-${currentIndex * 25}%)`,
+                transition: isTransitioning ? 'transform 0.5s ease-in-out' : 'none'
               }}
             >
-              {products.map((product, index) => {
+              {extendedProducts.map((product, index) => {
                 const {
                   id,
                   name,
@@ -100,7 +121,7 @@ const FeaturedProductsSection = ({ products }) => {
                 const imageUrl = getImageUrl(featured_image)
 
                 return (
-                  <div key={`${id}-${index}`} className="product-card-carousel-item">
+                  <div key={`product-${index}`} className="product-card-carousel-item">
                     <div className="product-card">
                       <Link to={`/products/${slug}`} className="product-card__link">
                         <div className="product-card__image-wrapper">
@@ -169,7 +190,7 @@ const FeaturedProductsSection = ({ products }) => {
             </div>
           </div>
         </div>
-      </div>
+      {/* </div> */}
     </section>
   )
 }

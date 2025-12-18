@@ -1,0 +1,55 @@
+.address-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.address-card:hover {
+  border-color: #007bff;
+  box-shadow: 0 2px 8px rgba(0, 0, 123, 0.1);
+}
+
+.address-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.address-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.default-badge {
+  background: #007bff;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.address-body p {
+  margin: 4px 0;
+  color: #666;
+}
+
+.address-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.address-select {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #ddd;
+  text-align: center;
+  color: #007bff;
+  font-weight: 500;
+}
