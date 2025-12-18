@@ -104,7 +104,7 @@ const CategoriesSection = ({ categories }) => {
         {/* Parent Categories Bar with | separators */}
         {parentCategories.length > 0 ? (
           <div className="parent-categories-bar">
-            {parentCategories.map((parent, index) => (
+            {parentCategories.slice(0, 7).map((parent, index) => (
               <span key={parent.id}>
                 <button
                   className={`parent-category ${activeParent && activeParent.id === parent.id ? 'active' : ''}`}
@@ -112,7 +112,7 @@ const CategoriesSection = ({ categories }) => {
                 >
                   {parent.title}
                 </button>
-                {index < parentCategories.length - 1 && <span className="separator"> | </span>}
+                {index < parentCategories.slice(0, 7).length - 1 && <span className="separator"> | </span>}
               </span>
             ))}
           </div>

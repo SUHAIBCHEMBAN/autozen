@@ -4,6 +4,11 @@
 
 const API_BASE_URL = 'http://localhost:8000/api/products'
 
+// Cache for parent categories
+let parentCategoriesCache = null
+let parentCategoriesCacheTime = 0
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
 /**
  * Get all products with optional filters
  * @param {Object} params - Query parameters (brand, vehicle_model, part_category, is_featured, ordering, search)
@@ -13,7 +18,7 @@ export const getProducts = async (params = {}) => {
   try {
     const queryString = new URLSearchParams(params).toString()
     const url = `${API_BASE_URL}/products/${queryString ? `?${queryString}` : ''}`
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -142,10 +147,10 @@ export const getBrands = async () => {
  */
 export const getVehicleModels = async (brandId = null) => {
   try {
-    const url = brandId 
+    const url = brandId
       ? `${API_BASE_URL}/models/?brand=${brandId}`
       : `${API_BASE_URL}/models/`
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -191,10 +196,17 @@ export const getCategories = async () => {
 }
 
 /**
- * Get parent categories only
+ * Get parent categories only with caching to prevent rate limiting
  * @returns {Promise<Array>}
  */
 export const getParentCategories = async () => {
+  const now = Date.now()
+
+  // Return cached data if it's still valid (less than 5 minutes old)
+  if (parentCategoriesCache && (now - parentCategoriesCacheTime) < CACHE_DURATION) {
+    return parentCategoriesCache
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}/categories/parents/`, {
       method: 'GET',
@@ -209,9 +221,45 @@ export const getParentCategories = async () => {
       throw new Error(data.detail || 'Failed to fetch parent categories')
     }
 
-    return data.results || data
+    // Cache the result
+    parentCategoriesCache = data.results || data
+    parentCategoriesCacheTime = now
+
+    return parentCategoriesCache
   } catch (error) {
+    // On error, clear cache and rethrow
+    parentCategoriesCache = null
+    parentCategoriesCacheTime = 0
     throw new Error(error.message || 'Network error. Please try again.')
   }
 }
 
+/**
+ * Get child categories only (categories that have a parent)
+ * @returns {Promise<Array>}
+ */
+export const getChildCategories = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/categories/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Failed to fetch categories')
+    }
+
+    const allCategories = data.results || data
+
+    // Filter for only child categories (those with a parent)
+    const childCategories = allCategories.filter(category => category.parent !== null)
+
+    return childCategories
+  } catch (error) {
+    throw new Error(error.message || 'Network error. Please try again.')
+  }
+}

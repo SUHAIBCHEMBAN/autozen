@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import { UserIcon, PackageIcon, HeartIcon } from './Icons'
 import { searchProducts } from '../../apps/products/services/productsService'
-import { getParentCategories } from '../../apps/products/services/productsService'
+import { getChildCategories } from '../../apps/products/services/productsService'
 
 function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -61,7 +61,7 @@ function Navbar() {
 
   const loadCategories = async () => {
     try {
-      const data = await getParentCategories()
+      const data = await getChildCategories()
       setCategories(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Failed to load categories:', error)
@@ -295,7 +295,7 @@ function Navbar() {
         {loadingCategories ? (
           <a href="#">Loading categories...</a>
         ) : categories.length > 0 ? (
-          categories.map((category) => (
+          categories.slice(0, 10).map((category) => (
             <a 
               key={category.id} 
               onClick={(e) => {
